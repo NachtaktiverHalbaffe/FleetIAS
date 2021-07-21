@@ -1,7 +1,7 @@
 """
 Filename: servicerequests.py
 Version name: 1.0, 2021-07-21
-Short description: servicerequests which can be send to mes
+Short description: servicerequests which can be send and received to mes
 
 (C) 2003-2021 IAS, Universitaet Stuttgart
 

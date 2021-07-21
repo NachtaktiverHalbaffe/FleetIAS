@@ -46,18 +46,18 @@ class CommandServer(object):
             try:
                 client, addr = self.SERVER.accept()
                 print("[COMMANDSERVER]: " + str(addr) + "connected to socket")
-                Thread(target=self.serviceCommunication,
+                Thread(target=self.commandCommunication,
                        args=(client, addr)).start()
             except Exception as e:
                 print(e)
                 break
 
 
-    # Thread for the service communication.
+    # Thread for the command communication.
     # @params:
-    # client: socket of the plc
-    # addr: ipv4 adress of the plc
-    def serviceCommunication(self, client, addr):
+    #   client: socket of the fleetias
+    #   addr: ipv4 adress of fleetias
+    def commandCommunication(self, client, addr):
         while True:
             if self.encodedMsg != "":
                 data = bytes.fromhex(self.encodedMsg)
