@@ -9,7 +9,7 @@ Short description: tcp server to receive and send commands to robotino
 
 from robotinomanager.robotinomanager import RobotinoManager
 import socket
-from threading import Thread
+from threading import Thread, Event
 
 
 class CommandServer(object):
@@ -23,31 +23,34 @@ class CommandServer(object):
         # setup socket
         self.SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.SERVER.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.SERVER.bind(self.ADDR)
         self.FORMAT = 'utf-8'
+        self.stopFlag = Event()
         # messages
         self.response = ""
         self.encodedMsg = ""
         # robotinomanager for delegating messages
         self.robotinoManager = None
 
+    def __del__(self):
+        self.SERVER.close()
+
     def runServer(self):
+        self.SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.SERVER.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.SERVER.bind(self.ADDR)
         self.SERVER.listen()
         print("[COMMANDSERVER] Commandserver started")
         # Start Tcp server on seperate Thread
         SERVER_THREADING = Thread(target=self.waitForConnection)
         try:
             SERVER_THREADING.start()
-            SERVER_THREADING.join()
         except Exception as e:
             print(e)
-        # Close server if all connections crashed
-        self.SERVER.close()
 
     # Waits for a connection from a plc. When a plc connects,
     # it starts a new thread for the service specific communication
     def waitForConnection(self):
-        while True:
+        while not self.stopFlag.is_set():
             try:
                 client, addr = self.SERVER.accept()
                 print("[COMMANDSERVER]: " + str(addr) + "connected to socket")
@@ -61,8 +64,9 @@ class CommandServer(object):
     # @params:
     #   client: socket of the fleetias
     #   addr: ipv4 adress of fleetias
+
     def commandCommunication(self, client):
-        while True:
+        while not self.stopFlag.is_set():
             if self.encodedMsg != "":
                 data = bytes.fromhex(self.encodedMsg)
                 client.send(data)
@@ -159,6 +163,11 @@ class CommandServer(object):
 
     def setRobotinoManager(self, robotinoManager):
         self.robotinoManager = robotinoManager
+
+    def stopServer(self):
+        self.stopFlag.set()
+        self.SERVER.close()
+        print("[COMMANDSERVER] Commandserver stopped")
 
 
 if __name__ == "__main__":

@@ -30,8 +30,11 @@ class GUIManager(object):
             commandServer=self.commandServer, mesClient=self.mesClient)
         self.commandServer.setRobotinoManager(self.robotinoManager)
 
-    # connect all buttons from ui with callback functions
+    def __del__(self):
+        self.commandServer.stopServer()
+        self.mesClient.stopClient()
 
+    # connect all buttons from ui with callback functions
     def connectCallbackFunction(self):
         """
         start/stop servers
@@ -41,7 +44,7 @@ class GUIManager(object):
         self.ui.buttonStopCommandServer.clicked.connect(
             self.stopCommandServer)
         self.ui.buttonStartMesClient.clicked.connect(self.startMesClient)
-        self.ui.buttonStopMesClient.clicked.connect(self.stopCommandServer)
+        self.ui.buttonStopMesClient.clicked.connect(self.stopMesClient)
 
         """
         manual operations
@@ -60,6 +63,7 @@ class GUIManager(object):
     # callback function to stop commandServer
     def stopCommandServer(self):
         print("[FLEETIAS] Stopping CommandServer...")
+        self.commandServer.stopServer()
 
     # callback function to start mesClient
     def startMesClient(self):
@@ -69,6 +73,7 @@ class GUIManager(object):
     # callback function to stop mesClient
     def stopMesClient(self):
         print("[FLEETIAS] Stopping MESClient...")
+        self.mesClient.stopClient()
 
     # callback function to manual trigger undocking
     def manualUndock(self):

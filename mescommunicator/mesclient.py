@@ -40,12 +40,17 @@ class MESClient(object):
     # run/start the mesClient
     def run(self):
         print("[MESCLIENT] MESClient started")
+        self.CYCLIC_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.CYCLIC_SOCKET.setsockopt(
+            socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.SERVICE_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.SERVICE_SOCKET.setsockopt(
+            socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             self.CYCLIC_SOCKET.connect((self.IP_MES, 2001))
             self.SERVICE_SOCKET.connect((self.IP_MES, 2000))
             cyclicCommunicationThread = Thread(target=self.cyclicCommunication)
             cyclicCommunicationThread.start()
-            cyclicCommunicationThread.join()
         except Exception as e:
             print(e)
 
@@ -178,3 +183,8 @@ class MESClient(object):
 
     def setStatesRobotinos(self, states):
         self.setStatesRobotinos = states
+
+    def stopClient(self):
+        self.SERVICE_SOCKET.close()
+        self.CYCLIC_SOCKET.close()
+        print("[MESCLIENT] Stopped client")
