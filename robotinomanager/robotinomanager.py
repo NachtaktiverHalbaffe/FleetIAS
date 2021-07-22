@@ -48,10 +48,12 @@ class RobotinoManager(object):
         lastUpdate = time.time()
         while not self.stopFlagCyclicUpdates.is_set():
             if lastUpdate - time.time > self.POLL_TIME:
+                from frontend.guimanager import GUIManager
                 for robotino in self.fleet:
                     self.commandServer.getRobotinoInfo(robotino.id)
                 lastUpdate = time.time()
                 self.mesClient.setStatesRobotinos(self.fleet)
+
         # reset stopflag after the cyclicStateUpdate got killed
         self.stopFlagCyclicUpdates.clear()
 
@@ -88,9 +90,12 @@ class RobotinoManager(object):
     # @param:
     #   robotino: instance of robotino which executes the task
     def executeTransportTask(self, robotino):
+        from frontend.mainwindow import guiManager
         """
         Load carrier at start
         """
+        taskInfo = (robotino.task[0], robotino.task[1], robotino.id, "loading")
+        guiManager.addTransportTask(taskInfo)
         # drive to start
         if robotino.dockedAt != robotino.task[0]:
             robotino.driveTo(robotino.task[0])
@@ -122,13 +127,20 @@ class RobotinoManager(object):
         """
         Unload carrier at target
         """
-
+        guiManager.deleteTransportTask(taskInfo)
+        taskInfo = (robotino.task[0], robotino.task[1],
+                    robotino.id, "transporting")
+        guiManager.addTransportTask(taskInfo)
         # drive to target
         robotino.driveTo(robotino.task[1])
         while True:
             id, state = self._parseCommandInfo()
             if id == robotino.id and state == "Finished-GotoPosition":
                 break
+        guiManager.deleteTransportTask(taskInfo)
+        taskInfo = (robotino.task[0], robotino.task[1],
+                    robotino.id, "unloading")
+        guiManager.addTransportTask(taskInfo)
         # dock to resource
         robotino.dock(robotino.task[1])
         id, state = self._parseCommandInfo()
@@ -146,6 +158,10 @@ class RobotinoManager(object):
         """
         Finishing task
         """
+        guiManager.deleteTransportTask(taskInfo)
+        taskInfo = (robotino.task[0], robotino.task[1],
+                    robotino.id, "finished")
+        guiManager.addTransportTask(taskInfo)
         # inform robotino
         self.commandServer.ack(robotino.id)
         # remove task from transporttasks
@@ -154,6 +170,7 @@ class RobotinoManager(object):
         self.transportTasks = list(tasks)
         # remove task from robotino
         robotino.task = (0, 0)
+        guiManager.deleteTransportTask(taskInfo)
 
     # splits the commandinfo into an id and state
     # @return:

@@ -31,6 +31,9 @@ class GUIManager(object):
         self.robotinoManager = RobotinoManager(
             commandServer=self.commandServer, mesClient=self.mesClient)
         self.commandServer.setRobotinoManager(self.robotinoManager)
+        # data for beuing displayed
+        self.statesRobotinos = []
+        self.transportTask = set()
 
     def __del__(self):
         self.commandServer.stopServer()
@@ -57,11 +60,19 @@ class GUIManager(object):
         self.ui.buttonLoadCarrier.clicked.connect(self.manualLoadCarrier)
         self.ui.buttonDriveTo.clicked.connect(self.manualDriveTo)
 
+    # fills out the rows of the tableview of robotinomanager
+    def fillTableViewRobotinoManager(self):
+        pass
+
+    # fills out the rows of the tableview of mes
+    def fillTableViewMES(self):
+        pass
+
     """
     Callback functions
     """
-    # callback function to start commandServer
 
+    # callback function to start commandServer
     def startCommandServer(self):
         print("[FLEETIAS] Starting CommandServer...")
         Thread(target=self.commandServer.runServer).start()
@@ -134,3 +145,19 @@ class GUIManager(object):
             robotino.driveTo(target)
         else:
             print("[FLEETIAS] Couldnt execute command becaus robotino is not present")
+
+    """
+    Setter
+    """
+
+    def setStatesRobotino(self, statesRobotino):
+        self.statesRobotinos = statesRobotino
+        self.fillTableViewRobotinoManager()
+
+    def addTransportTask( self, transportTask):
+        self.transportTask.add(transportTask)
+        self.fillTableViewMES()
+
+    def deleteTransportTask(self, transportTask):
+        self.transportTask.remove(transportTask)
+        self.fillTableViewMES()
