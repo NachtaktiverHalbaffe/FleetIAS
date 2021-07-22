@@ -111,11 +111,31 @@
        <row/>
        <row/>
        <row/>
-       <column/>
-       <column/>
-       <column/>
-       <column/>
-       <column/>
+       <column>
+        <property name="text">
+         <string>id</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>mode</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>Battery</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>Error</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>State</string>
+        </property>
+       </column>
       </widget>
      </item>
     </layout>
@@ -165,10 +185,26 @@
        <row/>
        <row/>
        <row/>
-       <column/>
-       <column/>
-       <column/>
-       <column/>
+       <column>
+        <property name="text">
+         <string>Start</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>Target</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>Assigned robotino</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>State</string>
+        </property>
+       </column>
       </widget>
      </item>
     </layout>
