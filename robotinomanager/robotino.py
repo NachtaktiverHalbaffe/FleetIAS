@@ -7,9 +7,6 @@ Short description: Robotino class
 
 """
 
-from mescommunicator.mesclient import MESClient
-from commandserver.commandserver import CommandServer
-
 
 class Robotino(object):
 
@@ -35,7 +32,7 @@ class Robotino(object):
         # instances of mesclient and commandserver for executing operations
         self.mesClient = mesClient
         self.commandServer = commandServer
-        self.task=(0,0)
+        self.task = (0, 0)
 
     # fetches state message and parses them into the state attributes
     # @params:

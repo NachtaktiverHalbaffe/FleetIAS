@@ -178,6 +178,8 @@ class RobotinoManager(object):
         for robotino in self.fleet:
             if robotino.id == id:
                 return robotino
+        print("[ROBOTINOMANAGER] Couldnt return robotino, because it doesnt exist")
+        return
 
     def startAutomatedOperation(self):
         Thread(target=self.automatedOperation).start()

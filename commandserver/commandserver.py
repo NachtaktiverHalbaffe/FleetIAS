@@ -7,16 +7,18 @@ Short description: tcp server to receive and send commands to robotino
 
 """
 
+from robotinomanager.robotinomanager import RobotinoManager
 import socket
 from threading import Thread
 
 
 class CommandServer(object):
 
-    def __init__(self, robotinoManager):
+    def __init__(self):
         # setup addr
         self.PORT = 13000
-        self.HOST = "129.69.102.129"
+        # self.HOST = "129.69.102.129"
+        self.HOST = "192.168.178.30"
         self.ADDR = (self.HOST, self.PORT)
         # setup socket
         self.SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -27,7 +29,7 @@ class CommandServer(object):
         self.response = ""
         self.encodedMsg = ""
         # robotinomanager for delegating messages
-        self.robotinoManager = robotinoManager
+        self.robotinoManager = None
 
     def runServer(self):
         self.SERVER.listen()
@@ -150,6 +152,13 @@ class CommandServer(object):
     def ack(self, resourceId=7):
         self.response = "PushCommand " + str(resourceId) + " Thank You"
         self.strToBin()
+
+    """
+    Setter
+    """
+
+    def setRobotinoManager(self, robotinoManager):
+        self.robotinoManager = robotinoManager
 
 
 if __name__ == "__main__":

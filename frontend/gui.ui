@@ -57,7 +57,7 @@
    <item>
     <layout class="QGridLayout" name="gridViewRobotinoManager">
      <item row="2" column="1">
-      <widget class="QPushButton" name="buttonStopCommunicationServer">
+      <widget class="QPushButton" name="buttonStopCommandServer">
        <property name="whatsThis">
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
@@ -80,7 +80,7 @@
       </widget>
      </item>
      <item row="2" column="0">
-      <widget class="QPushButton" name="buttonStartCommunicationServer">
+      <widget class="QPushButton" name="buttonStartCommandServer">
        <property name="text">
         <string>Start Server</string>
        </property>
