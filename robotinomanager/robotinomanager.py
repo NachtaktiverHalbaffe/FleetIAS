@@ -51,6 +51,7 @@ class RobotinoManager(object):
                 for robotino in self.fleet:
                     self.commandServer.getRobotinoInfo(robotino.id)
                 lastUpdate = time.time()
+                self.mesClient.setStatesRobotinos(self.fleet)
         # reset stopflag after the cyclicStateUpdate got killed
         self.stopFlagCyclicUpdates.clear()
 

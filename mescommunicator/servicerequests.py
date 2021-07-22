@@ -48,53 +48,72 @@ class ServiceRequests(object):
         self.aux2DInt = 0
         self.mainPNo = 0
         self.serviceParams = []
-    
+
+    # request to get transport tasks
+    # @param:
+    #   noOfActiveAGV: number of active robotinos which can execute tasks
     def getTransportTasks(self, noOfActiveAGV):
         # serviceclass and servicenumber to identify request
-        self.mClass= 200
+        self.mClass = 200
         self.mNo = 21
         # number of tasks returned by mes
         self.maxRecords = noOfActiveAGV
 
+    # read the transport task from an response from the mes
+    # @return:
+    #   transportTasks: set of transport tasks, each item is a tupel with: (startId, targetId)
     def readTransportTasks(self):
         # check if data is a transport task
-        if self.mClass== 200 and self.mNo == 21:
-            transportTasks = []
+        if self.mClass == 200 and self.mNo == 21:
+            transportTasks = set()
             for i in range(self.dataLength/16):
                 startId = self.serviceParams[8*i]
-                targetId= self.serviceParams[8*i+4]
-                task = [startId, targetId]
+                targetId = self.serviceParams[8*i+4]
+                task = (startId, targetId)
                 # add task to transport task if startId and targetId are valid
-                if startId != 0 and targetId != 0 and startId!= targetId:
-                    transportTasks.append(task)
+                if startId != 0 and targetId != 0 and startId != targetId:
+                    transportTasks.add(task)
             return transportTasks
         else:
             print("[SERVICEREQUESTS] Received data isnt a transport task")
 
+    # inform mes about the current docking position
+    # @params:
+    #   dockedAt: resourceId of resource where it is docked at (undocked: dockedAt=0)
+    #   robotinoID: resourceId of robotino which has docked
     def setDockingPos(self, dockedAt, robotinoID):
         # serviceclass and servicenumber to identify request
-        self.mClass= 201
+        self.mClass = 201
         self.mNo = 1
         # id of robotino
         self.aux1Int = robotinoID
         # id of resource where robotino is docked
         self.resourceId = dockedAt
 
+    # inform mes that robotino loads/unloads carrier
+    # @param:
+    #   robotinoId: resourceId of the robotino which loads/unloads
+    #   resourceId: resourceId of resource where it loads/unloads the carrier
+    #   isLoading: if robotino loads (True) or unLoads(False) the carrier
     def moveBuf(self, robotinoId, resourceId, isLoading):
         # serviceclass and servicenumber to identify request
-        self.mClass= 151
+        self.mClass = 151
         self.mNo = 5
         # set serviceparams depending on direction
         if isLoading:
-            # serviceparams: [id of source, bufNo of source, bufPos of source, 
+            # serviceparams: [id of source, bufNo of source, bufPos of source,
             # id of target, bufNo of target, bufPos of target]
-            self.serviceParams =[resourceId, 1, 1, robotinoId, 1,1]
+            self.serviceParams = [resourceId, 1, 1, robotinoId, 1, 1]
         else:
-            self.serviceParams =[robotinoId, 1, 1, resourceId, 2,1]
+            self.serviceParams = [robotinoId, 1, 1, resourceId, 2, 1]
 
+    # request mes to delete the buffer
+    # @params:
+    #   isBuffOut: if it is the Buffer Out (True) or Buffer In (False)
+    #   robotinoId: resourceId of robotino which buffer should be deleted
     def delBuf(self, isBuffOut, robotinoId):
         # serviceclass and servicenumber to identify request
-        self.mClass=151
+        self.mClass = 151
         self.mNo = 12
         # buffer number for buffer which should get deleted
         # 1= buffer out and 2= buffer in
@@ -128,10 +147,10 @@ class ServiceRequests(object):
         self.tcpIdent = "33333302"
         return self._encodeBin()
 
-
     # encodes message with full string format. Excluding the tcpident only the needed parameter are sent.
     # Format is parameter=value and each parameter is seperated with a ";"
     # @params: Takes all the neccessary attributes of the Object and parses them
+
     def _encodeStrFull(self):
         # Header
         msg = str(self.tcpIdent)
