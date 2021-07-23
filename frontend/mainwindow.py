@@ -53,7 +53,8 @@ class Ui_MainWindow(object):
         self.gridViewRobotinoManager.addWidget(
             self.buttonStartCommandServer, 2, 0, 1, 1)
         self.tableViewRobotinos = QtWidgets.QTableWidget(MainWindow)
-        self.tableViewRobotinos.setRowCount(5)
+        self.tableViewRobotinos.setGridStyle(QtCore.Qt.SolidLine)
+        self.tableViewRobotinos.setRowCount(0)
         self.tableViewRobotinos.setColumnCount(5)
         self.tableViewRobotinos.setObjectName("tableViewRobotinos")
         item = QtWidgets.QTableWidgetItem()
@@ -84,7 +85,7 @@ class Ui_MainWindow(object):
         self.buttonStopMesClient.setObjectName("buttonStopMesClient")
         self.gridViewMES.addWidget(self.buttonStopMesClient, 2, 1, 1, 1)
         self.tableViewMes = QtWidgets.QTableWidget(MainWindow)
-        self.tableViewMes.setRowCount(5)
+        self.tableViewMes.setRowCount(0)
         self.tableViewMes.setColumnCount(4)
         self.tableViewMes.setObjectName("tableViewMes")
         item = QtWidgets.QTableWidgetItem()
@@ -113,10 +114,6 @@ class Ui_MainWindow(object):
         self.inputRobtinoId = QtWidgets.QSpinBox(MainWindow)
         self.inputRobtinoId.setObjectName("inputRobtinoId")
         self.gridViewManual.addWidget(self.inputRobtinoId, 2, 1, 1, 1)
-        self.labelManualOp = QtWidgets.QLabel(MainWindow)
-        self.labelManualOp.setTextFormat(QtCore.Qt.MarkdownText)
-        self.labelManualOp.setObjectName("labelManualOp")
-        self.gridViewManual.addWidget(self.labelManualOp, 1, 0, 1, 1)
         self.labelRobotinoId = QtWidgets.QLabel(MainWindow)
         self.labelRobotinoId.setTextFormat(QtCore.Qt.MarkdownText)
         self.labelRobotinoId.setObjectName("labelRobotinoId")
@@ -135,6 +132,16 @@ class Ui_MainWindow(object):
         self.buttonDriveTo = QtWidgets.QPushButton(MainWindow)
         self.buttonDriveTo.setObjectName("buttonDriveTo")
         self.gridViewManual.addWidget(self.buttonDriveTo, 4, 0, 1, 1)
+        self.buttonSetAutomatic = QtWidgets.QPushButton(MainWindow)
+        self.buttonSetAutomatic.setObjectName("buttonSetAutomatic")
+        self.gridViewManual.addWidget(self.buttonSetAutomatic, 4, 1, 1, 1)
+        self.buttonSetManual = QtWidgets.QPushButton(MainWindow)
+        self.buttonSetManual.setObjectName("buttonSetManual")
+        self.gridViewManual.addWidget(self.buttonSetManual, 4, 2, 1, 1)
+        self.labelManualOp = QtWidgets.QLabel(MainWindow)
+        self.labelManualOp.setTextFormat(QtCore.Qt.MarkdownText)
+        self.labelManualOp.setObjectName("labelManualOp")
+        self.gridViewManual.addWidget(self.labelManualOp, 1, 0, 1, 2)
         self.verticalLayout_2.addLayout(self.gridViewManual)
 
         self.retranslateUi(MainWindow)
@@ -172,13 +179,11 @@ class Ui_MainWindow(object):
         item = self.tableViewMes.horizontalHeaderItem(1)
         item.setText(_translate("MainWindow", "Target"))
         item = self.tableViewMes.horizontalHeaderItem(2)
-        item.setText(_translate("MainWindow", "Assigned robotino"))
+        item.setText(_translate("MainWindow", "Assigned Robotino"))
         item = self.tableViewMes.horizontalHeaderItem(3)
         item.setText(_translate("MainWindow", "State"))
         self.buttonUndock.setText(_translate("MainWindow", "Undock"))
         self.buttonDock.setText(_translate("MainWindow", "Dock"))
-        self.labelManualOp.setText(_translate(
-            "MainWindow", "## Manual Operation"))
         self.labelRobotinoId.setText(_translate(
             "MainWindow", "#### Id of robotino"))
         self.label.setText(_translate(
@@ -189,6 +194,12 @@ class Ui_MainWindow(object):
             _translate("MainWindow", "Load Carrier"))
         self.buttonDriveTo.setText(_translate(
             "MainWindow", "Drive to resource"))
+        self.buttonSetAutomatic.setText(_translate(
+            "MainWindow", "Change to automatic operation"))
+        self.buttonSetManual.setText(_translate(
+            "MainWindow", "Change to manual operation"))
+        self.labelManualOp.setText(_translate(
+            "MainWindow", "## Manual Operation & Settings"))
 
 
 if __name__ == "__main__":

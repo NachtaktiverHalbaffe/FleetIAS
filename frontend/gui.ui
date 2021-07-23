@@ -100,17 +100,15 @@
      </item>
      <item row="1" column="0" colspan="2">
       <widget class="QTableWidget" name="tableViewRobotinos">
+       <property name="gridStyle">
+        <enum>Qt::SolidLine</enum>
+       </property>
        <property name="rowCount">
-        <number>5</number>
+        <number>0</number>
        </property>
        <property name="columnCount">
         <number>5</number>
        </property>
-       <row/>
-       <row/>
-       <row/>
-       <row/>
-       <row/>
        <column>
         <property name="text">
          <string>id</string>
@@ -175,16 +173,11 @@
      <item row="1" column="0" colspan="2">
       <widget class="QTableWidget" name="tableViewMes">
        <property name="rowCount">
-        <number>5</number>
+        <number>0</number>
        </property>
        <property name="columnCount">
         <number>4</number>
        </property>
-       <row/>
-       <row/>
-       <row/>
-       <row/>
-       <row/>
        <column>
         <property name="text">
          <string>Start</string>
@@ -197,7 +190,7 @@
        </column>
        <column>
         <property name="text">
-         <string>Assigned robotino</string>
+         <string>Assigned Robotino</string>
         </property>
        </column>
        <column>
@@ -236,16 +229,6 @@
      </item>
      <item row="2" column="1">
       <widget class="QSpinBox" name="inputRobtinoId"/>
-     </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="labelManualOp">
-       <property name="text">
-        <string>## Manual Operation</string>
-       </property>
-       <property name="textFormat">
-        <enum>Qt::MarkdownText</enum>
-       </property>
-      </widget>
      </item>
      <item row="2" column="0">
       <widget class="QLabel" name="labelRobotinoId">
@@ -288,6 +271,30 @@
       <widget class="QPushButton" name="buttonDriveTo">
        <property name="text">
         <string>Drive to resource</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="1">
+      <widget class="QPushButton" name="buttonSetAutomatic">
+       <property name="text">
+        <string>Change to automatic operation</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="2">
+      <widget class="QPushButton" name="buttonSetManual">
+       <property name="text">
+        <string>Change to manual operation</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0" colspan="2">
+      <widget class="QLabel" name="labelManualOp">
+       <property name="text">
+        <string>## Manual Operation &amp; Settings</string>
+       </property>
+       <property name="textFormat">
+        <enum>Qt::MarkdownText</enum>
        </property>
       </widget>
      </item>
