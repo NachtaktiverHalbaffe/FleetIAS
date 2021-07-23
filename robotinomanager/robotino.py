@@ -147,3 +147,21 @@ class Robotino(object):
     #   position: resourceId of resource which it drives to
     def driveTo(self, position):
         self.commandServer.goTo(position, self.id)
+
+    """
+    Setter
+    """
+
+    def activateAutoMode(self):
+        self.manualMode = False
+        self.autoMode = True
+
+    def activateManualMode(self):
+        self.autoMode = False
+        self.manualMode = True
+
+    def setMode(self, mode):
+        if str(mode) == "Automated":
+            self.activateAutoMode
+        elif str(mode) == "Manual":
+            self.activateManualMode

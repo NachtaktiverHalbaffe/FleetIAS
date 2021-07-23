@@ -182,7 +182,7 @@ class MESClient(object):
     """
 
     def setStatesRobotinos(self, states):
-        self.setStatesRobotinos = states
+        self.statesRobotinos = states
 
     def stopClient(self):
         self.SERVICE_SOCKET.close()

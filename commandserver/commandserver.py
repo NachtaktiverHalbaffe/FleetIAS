@@ -35,6 +35,7 @@ class CommandServer(object):
         self.SERVER.close()
 
     def runServer(self):
+        self.stopFlag.clear()
         self.SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.SERVER.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.SERVER.bind(self.ADDR)
@@ -54,8 +55,9 @@ class CommandServer(object):
             try:
                 client, addr = self.SERVER.accept()
                 print("[COMMANDSERVER]: " + str(addr) + "connected to socket")
+                self.getAllRobotinoID()
                 Thread(target=self.commandCommunication,
-                       args=(client)).start()
+                       args=[client]).start()
             except Exception as e:
                 print(e)
                 break
@@ -64,17 +66,16 @@ class CommandServer(object):
     # @params:
     #   client: socket of the fleetias
     #   addr: ipv4 adress of fleetias
-
     def commandCommunication(self, client):
         while not self.stopFlag.is_set():
             if self.encodedMsg != "":
                 data = bytes.fromhex(self.encodedMsg)
                 client.send(data)
                 self.encodedMsg = ""
-            try:
-                response = client.recv(2048).decode(self.FORMAT)
+
+                response = client.recv(512)
                 if response:
-                    print(response)
+                    response = response.decode('utf-8')
                     # fetch state message
                     if "RobotInfo" in response:
                         strId = response.split("robotinoid:")
@@ -83,12 +84,12 @@ class CommandServer(object):
                         robotino.fetchStateMsg(response)
                     # create/update fleet
                     elif "AllRobotinoID" in response:
-                        self.robotinoManager.createFleet(response)
+                        Thread(target=self.robotinoManager.createFleet,
+                               args=[response]).start()
                     # inform robotinomanager about commandinfo
                     elif "CommandInfo" in response:
-                        self.robotinoManager.setCommandInfo(response)
-            except Exception as e:
-                print(e)
+                        Thread(target=self.robotinoManager.setCommandInfo,
+                               args=[response]).start()
 
     # converts the string to binary which the server can send
     def strToBin(self):
@@ -147,7 +148,7 @@ class CommandServer(object):
 
     # command to get the resourceIds of all active robotinos
     def getAllRobotinoID(self):
-        self.respsone = "PushCommand GetAllRobotinoID"
+        self.response = "PushCommand GetAllRobotinoID"
         self.strToBin()
 
     # command to tell robotino that it has ended it transport task
@@ -166,6 +167,9 @@ class CommandServer(object):
 
     def stopServer(self):
         self.stopFlag.set()
+        if self.robotinoManager != None:
+            self.robotinoManager.stopCyclicStateUpdate()
+            self.robotinoManager.stopAutomatedOperation()
         self.SERVER.close()
         print("[COMMANDSERVER] Commandserver stopped")
 

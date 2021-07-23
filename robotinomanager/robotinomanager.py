@@ -9,12 +9,13 @@ Short description: class to manage all robotinos (delegate tasks, delegtae state
 
 from .robotino import Robotino
 from threading import Thread, Event
+from PyQt5.QtCore import QThread
 import time
 
 
 class RobotinoManager(object):
 
-    def __init__(self, mesClient, commandServer):
+    def __init__(self, mesClient, commandServer, guiManager):
         # fleet
         self.fleet = []
         # params for automated control
@@ -27,6 +28,9 @@ class RobotinoManager(object):
         # instances of mesclient and commandserver for executing operations
         self.mesClient = mesClient
         self.commandServer = commandServer
+        self.guiManager = guiManager
+        self.cyclicThread = QThread()
+        self.cyclicThread.started.connect(self.startCyclicStateUpdate)
 
     # creates the fleet with robotinos inside
     # @params:
@@ -39,22 +43,26 @@ class RobotinoManager(object):
         for id in strIds:
             robotino = Robotino(mesClient=self.mesClient,
                                 commandServer=self.commandServer)
-            robotino.id = id
+            robotino.id = int(id)
+            robotino.manualMode = True
             self.fleet.append(robotino)
-        Thread(target=self.startCyclicStateUpdate).start()
+
+        self.cyclicThread.start()
+        # Thread(target=self.startCyclicStateUpdate).start()
 
     # cyclically update state of robotinos, runs as thread
     def cyclicStateUpdate(self):
         lastUpdate = time.time()
+        print("[ROBOTINOMANAGER] Started cyclic state updates")
         while not self.stopFlagCyclicUpdates.is_set():
-            if lastUpdate - time.time > self.POLL_TIME:
-                from frontend.guimanager import GUIManager
+            if time.time() - lastUpdate > self.POLL_TIME:
                 for robotino in self.fleet:
                     self.commandServer.getRobotinoInfo(robotino.id)
                 lastUpdate = time.time()
                 self.mesClient.setStatesRobotinos(self.fleet)
-
+                self.guiManager.setStatesRobotino(self.fleet)
         # reset stopflag after the cyclicStateUpdate got killed
+        print("[ROBOTINOMANAGER] Stopped cyclic state updates")
         self.stopFlagCyclicUpdates.clear()
 
     # operates the robotino in automated operation where it gets the transport tasks from the
@@ -78,7 +86,7 @@ class RobotinoManager(object):
                     # assign task if it isnt already assigned
                     if not isAlreadyAssigned:
                         for robotino in self.fleet:
-                            if robotino.task == (0, 0):
+                            if robotino.task == (0, 0) and robotino.autoMode:
                                 robotino.task = task
                                 Thread(target=self.executeTransportTask,
                                        args=[robotino]).start()
@@ -95,7 +103,7 @@ class RobotinoManager(object):
         Load carrier at start
         """
         taskInfo = (robotino.task[0], robotino.task[1], robotino.id, "loading")
-        guiManager.addTransportTask(taskInfo)
+        self.guiManager.addTransportTask(taskInfo)
         # drive to start
         if robotino.dockedAt != robotino.task[0]:
             robotino.driveTo(robotino.task[0])
@@ -127,20 +135,20 @@ class RobotinoManager(object):
         """
         Unload carrier at target
         """
-        guiManager.deleteTransportTask(taskInfo)
+        self.guiManager.deleteTransportTask(taskInfo)
         taskInfo = (robotino.task[0], robotino.task[1],
                     robotino.id, "transporting")
-        guiManager.addTransportTask(taskInfo)
+        self.guiManager.addTransportTask(taskInfo)
         # drive to target
         robotino.driveTo(robotino.task[1])
         while True:
             id, state = self._parseCommandInfo()
             if id == robotino.id and state == "Finished-GotoPosition":
                 break
-        guiManager.deleteTransportTask(taskInfo)
+        self.guiManager.deleteTransportTask(taskInfo)
         taskInfo = (robotino.task[0], robotino.task[1],
                     robotino.id, "unloading")
-        guiManager.addTransportTask(taskInfo)
+        self.guiManager.addTransportTask(taskInfo)
         # dock to resource
         robotino.dock(robotino.task[1])
         id, state = self._parseCommandInfo()
@@ -158,10 +166,10 @@ class RobotinoManager(object):
         """
         Finishing task
         """
-        guiManager.deleteTransportTask(taskInfo)
+        self.guiManager.deleteTransportTask(taskInfo)
         taskInfo = (robotino.task[0], robotino.task[1],
                     robotino.id, "finished")
-        guiManager.addTransportTask(taskInfo)
+        self.guiManager.addTransportTask(taskInfo)
         # inform robotino
         self.commandServer.ack(robotino.id)
         # remove task from transporttasks
@@ -170,7 +178,7 @@ class RobotinoManager(object):
         self.transportTasks = list(tasks)
         # remove task from robotino
         robotino.task = (0, 0)
-        guiManager.deleteTransportTask(taskInfo)
+        self.guiManager.deleteTransportTask(taskInfo)
 
     # splits the commandinfo into an id and state
     # @return:
@@ -199,12 +207,14 @@ class RobotinoManager(object):
         return
 
     def startAutomatedOperation(self):
+        self.stopFlagAutoOperation.clear()
         Thread(target=self.automatedOperation).start()
 
     def stopAutomatedOperation(self):
         self.stopFlagAutoOperation.set()
 
     def startCyclicStateUpdate(self):
+        self.stopFlagCyclicUpdates.clear()
         Thread(target=self.cyclicStateUpdate).start()
 
     def stopCyclicStateUpdate(self):
