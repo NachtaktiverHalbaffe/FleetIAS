@@ -10,6 +10,7 @@ Short description: tcp server to receive and send commands to robotino
 from robotinomanager.robotinomanager import RobotinoManager
 import socket
 from threading import Thread, Event
+from conf import IP_FLEETIAS, TCP_BUFF_SIZE
 
 
 class CommandServer(object):
@@ -17,13 +18,13 @@ class CommandServer(object):
     def __init__(self):
         # setup addr
         self.PORT = 13000
-        # self.HOST = "129.69.102.129"
-        self.HOST = "192.168.178.30"
+        self.HOST = IP_FLEETIAS
         self.ADDR = (self.HOST, self.PORT)
         # setup socket
         self.SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.SERVER.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.FORMAT = 'utf-8'
+        self.buffSize = TCP_BUFF_SIZE
         self.stopFlag = Event()
         # messages
         self.response = ""
@@ -73,7 +74,7 @@ class CommandServer(object):
                 client.send(data)
                 self.encodedMsg = ""
 
-                response = client.recv(512)
+                response = client.recv(self.buffSize)
                 if response:
                     response = response.decode('utf-8')
                     # fetch state message

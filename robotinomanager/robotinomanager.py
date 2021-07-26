@@ -11,6 +11,7 @@ from .robotino import Robotino
 from threading import Thread, Event
 from PyQt5.QtCore import QThread
 import time
+from conf import POLL_TIME_STATUSUPDATES, POLL_TIME_TASKS
 
 
 class RobotinoManager(object):
@@ -23,8 +24,8 @@ class RobotinoManager(object):
         self.commandInfo = ""
         self.stopFlagCyclicUpdates = Event()
         self.stopFlagAutoOperation = Event()
-        self.POLL_TIME = 2
-        self.POLL_TIME_TASKS = 3
+        self.POLL_TIME_STATEUPDATES = POLL_TIME_STATUSUPDATES
+        self.POLL_TIME_TASKS = POLL_TIME_TASKS
         # instances of mesclient and commandserver for executing operations
         self.mesClient = mesClient
         self.commandServer = commandServer
@@ -55,7 +56,7 @@ class RobotinoManager(object):
         lastUpdate = time.time()
         print("[ROBOTINOMANAGER] Started cyclic state updates")
         while not self.stopFlagCyclicUpdates.is_set():
-            if time.time() - lastUpdate > self.POLL_TIME:
+            if time.time() - lastUpdate > self.POLL_TIME_STATEUPDATES:
                 for robotino in self.fleet:
                     self.commandServer.getRobotinoInfo(robotino.id)
                 lastUpdate = time.time()

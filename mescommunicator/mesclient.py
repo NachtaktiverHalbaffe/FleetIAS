@@ -12,15 +12,16 @@ import socket
 import time
 from threading import Thread
 from .servicerequests import ServiceRequests
+from conf import IP_FLEETIAS, TCP_BUFF_SIZE, IP_MES
 
 
 class MESClient(object):
 
     def __init__(self):
         # setup addr
-        self.HOST = "129.69.102.129"
-        self.IP_MES = "129.69.102.129"
-        self.BUFFSIZE = 512
+        self.HOST = IP_FLEETIAS
+        self.IP_MES = IP_MES
+        self.BUFFSIZE = TCP_BUFF_SIZE
         # setup socket for cyclic communication
         self.CYCLIC_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.CYCLIC_SOCKET.setsockopt(
