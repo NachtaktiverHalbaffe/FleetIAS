@@ -16,7 +16,7 @@ from conf import POLL_TIME_STATUSUPDATES, POLL_TIME_TASKS
 
 class RobotinoManager(object):
 
-    def __init__(self, mesClient, commandServer, guiManager):
+    def __init__(self, mesClient, commandServer, guiManager=None):
         # fleet
         self.fleet = []
         # params for automated control
@@ -61,7 +61,9 @@ class RobotinoManager(object):
                     self.commandServer.getRobotinoInfo(robotino.id)
                 lastUpdate = time.time()
                 self.mesClient.setStatesRobotinos(self.fleet)
-                self.guiManager.setStatesRobotino(self.fleet)
+                # only do updates in gui if module runs/is configured with gui
+                if self.guiManager != None:
+                    self.guiManager.setStatesRobotino(self.fleet)
         # reset stopflag after the cyclicStateUpdate got killed
         print("[ROBOTINOMANAGER] Stopped cyclic state updates")
         self.stopFlagCyclicUpdates.clear()
@@ -99,12 +101,14 @@ class RobotinoManager(object):
     # @param:
     #   robotino: instance of robotino which executes the task
     def executeTransportTask(self, robotino):
-        from frontend.mainwindow import guiManager
         """
         Load carrier at start
         """
-        taskInfo = (robotino.task[0], robotino.task[1], robotino.id, "loading")
-        self.guiManager.addTransportTask(taskInfo)
+        # only do updates in gui if module runs/is configured with gui
+        if self.guiManager != None:
+            taskInfo = (robotino.task[0],
+                        robotino.task[1], robotino.id, "loading")
+            self.guiManager.addTransportTask(taskInfo)
         # drive to start
         if robotino.dockedAt != robotino.task[0]:
             robotino.driveTo(robotino.task[0])
@@ -136,10 +140,12 @@ class RobotinoManager(object):
         """
         Unload carrier at target
         """
-        self.guiManager.deleteTransportTask(taskInfo)
-        taskInfo = (robotino.task[0], robotino.task[1],
-                    robotino.id, "transporting")
-        self.guiManager.addTransportTask(taskInfo)
+        # only do updates in gui if module runs/is configured with gui
+        if self.guiManager != None:
+            self.guiManager.deleteTransportTask(taskInfo)
+            taskInfo = (robotino.task[0], robotino.task[1],
+                        robotino.id, "transporting")
+            self.guiManager.addTransportTask(taskInfo)
         # drive to target
         robotino.driveTo(robotino.task[1])
         while True:
@@ -167,10 +173,11 @@ class RobotinoManager(object):
         """
         Finishing task
         """
-        self.guiManager.deleteTransportTask(taskInfo)
-        taskInfo = (robotino.task[0], robotino.task[1],
-                    robotino.id, "finished")
-        self.guiManager.addTransportTask(taskInfo)
+        if self.guiManager != None:
+            self.guiManager.deleteTransportTask(taskInfo)
+            taskInfo = (robotino.task[0], robotino.task[1],
+                        robotino.id, "finished")
+            self.guiManager.addTransportTask(taskInfo)
         # inform robotino
         self.commandServer.ack(robotino.id)
         # remove task from transporttasks
@@ -179,7 +186,9 @@ class RobotinoManager(object):
         self.transportTasks = list(tasks)
         # remove task from robotino
         robotino.task = (0, 0)
-        self.guiManager.deleteTransportTask(taskInfo)
+        # only do updates in gui if module runs/is configured with gui
+        if self.guiManager != None:
+            self.guiManager.deleteTransportTask(taskInfo)
 
     # splits the commandinfo into an id and state
     # @return:
