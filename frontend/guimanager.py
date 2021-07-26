@@ -176,7 +176,7 @@ class GUIManager(object):
     def manualDock(self):
         target = self.ui.inputResourceId.value()
         print(
-            "[FLEETIAS] Manual send command to robotino to dock to resource " + str(target))
+            "[FLEETIAS] Manual send command to robotino to dock")
         robotino = self.robotinoManager.getRobotino(
             self.ui.inputRobtinoId.value())
         if robotino != None:

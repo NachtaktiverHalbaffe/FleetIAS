@@ -10,7 +10,6 @@ while True:
     msg = sock.recv(512)
     if msg:
         msg = msg.decode('utf-8')
-        print("1")
         print(msg)
         if "GetRobotinoInfo" in msg:
             response = "RobotInfo robotinoid: 7 x: -2.951 y: 1.747 phi: -21.599 batteryvoltage: 23.951 current: 1.162 laserwarning: 0 lasersafety: 0 boxpresent: 0 state: IDLE"
@@ -19,4 +18,4 @@ while True:
             response = "AllRobotinoID 7"
             sock.send(response.encode('utf-8'))
     else:
-        print("2")
+        print("Commanserver not reachable")

@@ -6,6 +6,7 @@ Short description: Robotino class
 (C) 2003-2021 IAS, Universitaet Stuttgart
 
 """
+from threading import Thread
 
 
 class Robotino(object):
@@ -120,33 +121,37 @@ class Robotino(object):
 
     # push command to load carrier to robotino and send corresponding servicerequest to mes
     def loadCarrier(self):
-        self.commandServer.loadBox(self.id)
-        self.mesClient.moveBuf(self.id, self.dockedAt, True)
+        Thread(target=self.commandServer.loadBox, args=[self.id]).start()
+        Thread(target=self.mesClient.moveBuf, args=[
+               self.id, self.dockedAt, True]).start()
 
     # push command to unload carrier to robotino and send corresponding servicerequest to mes
     def unloadCarrier(self):
-        self.commandServer.unloadBox(self.id)
-        self.mesClient.moveBuf(self.id, self.dockedAt, False)
+        Thread(target=self.commandServer.unloadBox, args=[self.id]).start()
+        Thread(target=self.mesClient.moveBuf, args=[
+               self.id, self.dockedAt, False]).start()
 
     # push command to dock to an resource to robotino and send corresponding servicerequest to mes
     # @params:
     #   position: resourceId of resource which it docks to
     def dock(self, position):
-        self.commandServer.dock(position, self.id)
-        self.mesClient.setDockingPos(position, self.id)
+        Thread(target=self.commandServer.dock, args=[self.id]).start()
+        Thread(target=self.mesClient.setDockingPos,
+               args=[int(position), self.id]).start()
         self.dockedAt = position
 
     # push command to undock from resource to robotino and send corresponding servicerequest to mes
     def undock(self):
-        self.commandServer.undock(self.id)
-        self.mesClient.setDockingPos(0, self.id)
+        Thread(target=self.commandServer.undock, args=[self.id]).start()
+        Thread(target=self.mesClient.setDockingPos, args=[0, self.id]).start()
         self.dockedAt = 0
 
     # push command to drive to an resource to robotino and send corresponding servicerequest to mes
     # @params:
     #   position: resourceId of resource which it drives to
     def driveTo(self, position):
-        self.commandServer.goTo(position, self.id)
+        Thread(target=self.commandServer.goTo,
+               args=[position, self.id]).start()
 
     """
     Setter

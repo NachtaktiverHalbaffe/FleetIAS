@@ -121,16 +121,15 @@ class CommandServer(object):
     #   position: resourceId of resource where it should drive to
     def goTo(self, position,  resourceId=7):
         self.response = "PushCommand " + \
-            str(resourceId) + " GoTo Position " + str(position)
+            str(resourceId) + " GoToPosition " + str(position)
         self.strToBin()
 
     # command to let the robotino dock to a resource
     # @param:
     #   resourceId: resourceId of robotino which should execute the task
     #   position: resourceId of resource where it should dock to
-    def dock(self, position, resourceId=7):
-        self.response = "PushCommand " + \
-            str(resourceId) + " DockTo " + str(position)
+    def dock(self, resourceId=7):
+        self.response = "PushCommand " + str(resourceId) + " DockTo 1"
         self.strToBin()
 
     # command to let the robotino undock from an resource
