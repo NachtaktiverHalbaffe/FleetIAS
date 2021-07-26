@@ -33,7 +33,7 @@ class GUIManager(object):
         self.robotinoManager = RobotinoManager(
             commandServer=self.commandServer, mesClient=self.mesClient, guiManager=self)
         self.commandServer.setRobotinoManager(self.robotinoManager)
-        # data for beuing displayed
+        # data which is being displayed
         self.statesRobotinos = []
         self.transportTasks = set()
 
@@ -83,8 +83,16 @@ class GUIManager(object):
                 self.ui.tableViewRobotinos.setItem(
                     rowPosition, 1, QtWidgets.QTableWidgetItem("Manual"))
             # Battery
+            # Battery has at full charge 12,7 V and two batterys are in series => Full accu has 25.4 V
+            # Battery is empty at 11,5 V and two batterys are in series => Full accu has 23.0 V
+            # => Voltage drops with 2.4V (1.2V with one battery) from full to empty with linear approximation
+            # batterLevel = (25.4 V - current battery voltage )/2.4 (for notation in percentage it has to be multiplied with 100)
+            batteryLevel = round((((25.4) - robotino.batteryVoltage)/2.4)*100)
+            # set batteryLevel to 0% for invalid values e.g. when no battery voltage is given
+            if batteryLevel > 100 or batteryLevel < 0:
+                batteryLevel = 0
             self.ui.tableViewRobotinos.setItem(
-                rowPosition, 2, QtWidgets.QTableWidgetItem(str(robotino.batteryVoltage)))
+                rowPosition, 2, QtWidgets.QTableWidgetItem(str(batteryLevel) + " %"))
             # error
             if robotino.laserWarning:
                 self.ui.tableViewRobotinos.setItem(
