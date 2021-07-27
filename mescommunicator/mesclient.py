@@ -189,3 +189,8 @@ class MESClient(object):
         self.SERVICE_SOCKET.close()
         self.CYCLIC_SOCKET.close()
         print("[MESCLIENT] Stopped client")
+
+
+if __name__ == "__main__":
+    mesClient = MESClient()
+    Thread(target=mesClient.run).start()

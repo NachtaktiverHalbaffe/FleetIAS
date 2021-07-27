@@ -229,3 +229,17 @@ class RobotinoManager(object):
 
     def stopCyclicStateUpdate(self):
         self.stopFlagCyclicUpdates.set()
+
+
+if __name__ == "__main__":
+    from commandserver.commandserver import CommandServer
+    from mescommunicator.mesclient import MESClient
+
+    # setup components
+    commandServer = CommandServer()
+    mesClient = MESClient()
+    robotinoManager = RobotinoManager(
+        mesClient=mesClient, commandServer=commandServer)
+
+    # link component to robotinomanager so commandserver could update tasks
+    commandServer.setRobotinoManager(robotinoManager)

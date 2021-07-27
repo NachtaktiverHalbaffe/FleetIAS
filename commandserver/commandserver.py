@@ -65,8 +65,7 @@ class CommandServer(object):
 
     # Thread for the command communication.
     # @params:
-    #   client: socket of the fleetias
-    #   addr: ipv4 adress of fleetias
+    #   client: socket of the robotino
     def commandCommunication(self, client):
         while not self.stopFlag.is_set():
             if self.encodedMsg != "":
@@ -81,16 +80,23 @@ class CommandServer(object):
                     if "RobotInfo" in response:
                         strId = response.split("robotinoid:")
                         id = int(strId[1][1])
-                        robotino = self.robotinoManager.getRobotino(id)
-                        robotino.fetchStateMsg(response)
+                        if self.robotinoManager != None:
+                            robotino = self.robotinoManager.getRobotino(id)
+                            robotino.fetchStateMsg(response)
                     # create/update fleet
                     elif "AllRobotinoID" in response:
-                        Thread(target=self.robotinoManager.createFleet,
-                               args=[response]).start()
+                        if self.robotinoManager != None:
+                            Thread(target=self.robotinoManager.createFleet,
+                                   args=[response]).start()
                     # inform robotinomanager about commandinfo
                     elif "CommandInfo" in response:
-                        Thread(target=self.robotinoManager.setCommandInfo,
-                               args=[response]).start()
+                        if self.robotinoManager != None:
+                            Thread(target=self.robotinoManager.setCommandInfo,
+                                   args=[response]).start()
+                    # print out response which isnt handled when received
+                    else:
+                        print(
+                            "[COMMANDSERVER] Catched unhandled response from robotino: " + str(response))
 
     # converts the string to binary which the server can send
     def strToBin(self):
