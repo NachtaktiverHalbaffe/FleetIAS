@@ -29,11 +29,12 @@ class CommandServer(object):
         # messages
         self.response = ""
         self.encodedMsg = ""
-        # robotinomanager for delegating messages
+        # robotinomanager for delegating messages to be handled
         self.robotinoManager = None
 
     def __del__(self):
         self.SERVER.close()
+        self.stopFlag.set()
 
     def runServer(self):
         self.stopFlag.clear()
@@ -68,18 +69,65 @@ class CommandServer(object):
     #   client: socket of the robotino
     def commandCommunication(self, client):
         while not self.stopFlag.is_set():
-            if self.encodedMsg != "":
+            if len(self.robotinoManager.fleet) == 0 and self.encodedMsg == "":
+                self.getAllRobotinoID()
+            elif self.encodedMsg != "":
                 data = bytes.fromhex(self.encodedMsg)
                 client.send(data)
                 self.encodedMsg = ""
 
                 response = client.recv(self.buffSize)
                 if response:
-                    response = response.decode('utf-8')
+                    response = response.decode(self.FORMAT)
+                    # Error handling
+                    # station doesnt respond when loading/unloading carrier
+                    if "NO_RESPONSE_FROM_STATION" in response:
+                        state, id = self._parseCommandInfo(response)
+                        print(
+                            "[COMMANDSERVER] Error while loading/unloading Carrier: Station didn't respond")
+                        self.endTask(id)
+                    # robotino tries to undock but isnt docked
+                    elif "ROBOT_NOT_DOCKED" in response:
+                        state, id = self._parseCommandInfo(response)
+                        print(
+                            "[COMMANDSERVER] Error while undocking from resource: Robotino isn't docked")
+                        self.endTask(id)
+                    # robotino tries to dock but didnt find markers to dock
+                    elif "NO_DOCK_STATION" in response:
+                        state, id = self._parseCommandInfo(response)
+                        print(
+                            "[COMMANDSERVER] Error while docking to resource: Robotino couldn't find markers to dock")
+                        self.endTask(id)
+                    # robotino tries to drive to resource but path is blocked
+                    elif "PATH_BLOCKED" in response:
+                        state, id = self._parseCommandInfo(response)
+                        print(
+                            "[COMMANDSERVER] Error while driving to resource: Path is blocked")
+                        self.endTask(id)
+                    # robotino tries to load carrier, but a carrier is already present on robotino
+                    elif "BOX_PRESENT" in response and "LoadBox" in response:
+                        state, id = self._parseCommandInfo(response)
+                        print(
+                            "[COMMANDSERVER] Error while loading carrier: A carrier is already present on carrier")
+                        self.endTask(id)
+                    # robotino tries to load carrier, but didnt get a carrier from station
+                    elif "NO_BOX" in response:
+                        state, id = self._parseCommandInfo(response)
+                        print(
+                            "[COMMANDSERVER] Error while loading/unloading carrier: resource didn't move carrier or robotino hasn't a box present")
+                        self.endTask(id)
+                    # robotino tries to unload carrier, but after unloading the box is still present
+                    elif "BOX_PRESENT" in response and "UnloadBox" in response:
+                        state, id = self._parseCommandInfo(response)
+                        print(
+                            "[COMMANDSERVER] Error while unloading carrier: after finishing operation the box is still present")
+                        self.endTask(id)
+
+                    # info messages and responses from commands
                     # fetch state message
-                    if "RobotInfo" in response:
+                    elif "RobotInfo" in response:
                         strId = response.split("robotinoid:")
-                        id = int(strId[1][1])
+                        id = int(strId[1][0])
                         if self.robotinoManager != None:
                             robotino = self.robotinoManager.getRobotino(id)
                             robotino.fetchStateMsg(response)
@@ -149,20 +197,47 @@ class CommandServer(object):
     # @param:
     #   resourceId: resourceId of robotino which should execute the task
     def getRobotinoInfo(self, resourceId=7):
-        self.response = "GetRobotinoInfo " + str(resourceId)
+        self.response = "GetRobotInfo " + str(resourceId)
         self.strToBin()
 
     # command to get the resourceIds of all active robotinos
     def getAllRobotinoID(self):
-        self.response = "PushCommand GetAllRobotinoID"
+        # self.response = "PushCommand GetAllRobotinoID"
+        self.response = "GetAllRobotinoID"
+        self.strToBin()
+
+    # command to get the resourceIds of all active robotinos
+    #   resourceId: resourceId of robotino which should execute the task
+    def endTask(self, resourceId=7):
+        # self.response = "PushCommand GetAllRobotinoID"
+        self.response = "EndTask " + str(resourceId)
         self.strToBin()
 
     # command to tell robotino that it has ended it transport task
+    # @param:
     # @param:
     #   resourceId: resourceId of robotino which should execute the task
     def ack(self, resourceId=7):
         self.response = "PushCommand " + str(resourceId) + " Thank You"
         self.strToBin()
+
+    # splits the commandinfo into an id and state
+    # @param:
+    #   msg: message from which the state and id is extracted
+    # @return:
+    #   state: string with the state message of the command info
+    #   id: resourceId of robotino from which the command info comes
+    def _parseCommandInfo(self, msg):
+        id = msg.split("robotinoid:")
+        print(id)
+        if id[0] != "":
+            id = int(id[1][0])
+            state = msg.split("\"")
+            state = state[1]
+
+            return id, state
+        else:
+            return 0, ""
 
     """
     Setter
