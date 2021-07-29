@@ -11,7 +11,7 @@ from types import resolve_bases
 from robotinomanager.robotinomanager import RobotinoManager
 import socket
 from threading import Thread, Event
-from conf import IP_FLEETIAS, TCP_BUFF_SIZE
+from conf import IP_FLEETIAS, TCP_BUFF_SIZE, errLogger
 
 
 class CommandServer(object):
@@ -86,34 +86,34 @@ class CommandServer(object):
                         state, id = self._parseCommandInfo(response)
                         if "LoadBox" in response:
                             errMsg = "Error while loading carrier: Station didn't respond"
-                            print("[COMMANDSERVER] " + errMsg)
+                            errLogger.error("[COMMANDSERVER] " + errMsg)
                         elif "UnloadBox" in response:
                             errMsg = "Error while unloading Carrier: Station didn't respond"
-                            print("[COMMANDSERVER] " + errMsg)
+                            errLogger.error("[COMMANDSERVER] " + errMsg)
                         if self.robotinoManager != None:
-                                self.robotinoManager.handleError(errMsg, id)
+                            self.robotinoManager.handleError(errMsg, id)
                         self.endTask(id)
                     # robotino tries to undock but isnt docked
                     elif "ROBOT_NOT_DOCKED" in response:
                         state, id = self._parseCommandInfo(response)
                         errMsg = "Error while undocking from resource: Robotino isn't docked"
-                        print("[COMMANDSERVER] " + errMsg)
+                        errLogger.error("[COMMANDSERVER] " + errMsg)
                         if self.robotinoManager != None:
-                                self.robotinoManager.handleError(errMsg, id)
+                            self.robotinoManager.handleError(errMsg, id)
                         self.endTask(id)
                     # robotino tries to dock but didnt find markers to dock
                     elif "NO_DOCK_STATION" in response:
                         state, id = self._parseCommandInfo(response)
                         errMsg = "Error while docking to resource: Robotino couldn't find markers to dock"
-                        print("[COMMANDSERVER] " + errMsg)
+                        errLogger.error("[COMMANDSERVER] " + errMsg)
                         if self.robotinoManager != None:
-                                self.robotinoManager.handleError(errMsg, id)
+                            self.robotinoManager.handleError(errMsg, id)
                         self.endTask(id)
                     # robotino tries to drive to resource but path is blocked
                     elif "PATH_BLOCKED" in response:
                         state, id = self._parseCommandInfo(response)
                         errMsg = "Error while driving to resource: Path is blocked"
-                        print("[COMMANDSERVER] " + errMsg)
+                        errLogger.error("[COMMANDSERVER] " + errMsg)
                         if self.robotinoManager != None:
                             self.robotinoManager.handleError(errMsg, id)
                         self.endTask(id)
@@ -122,24 +122,24 @@ class CommandServer(object):
                         state, id = self._parseCommandInfo(response)
                         if "LoadBox" in response:
                             errMsg = "Error while loading carrier: A carrier is already present on carrier"
-                            print("[COMMANDSERVER] " + errMsg)
+                            errLogger.error("[COMMANDSERVER] " + errMsg)
                         elif "UnloadBox" in response:
                             errMsg = "Error while unloading carrier: After finishing operation the box is still present"
-                            print("[COMMANDSERVER] " + errMsg)
+                            errLogger.error("[COMMANDSERVER] " + errMsg)
                         if self.robotinoManager != None:
-                                self.robotinoManager.handleError(errMsg, id)
+                            self.robotinoManager.handleError(errMsg, id)
                         self.endTask(id)
                     # robotino tries to load carrier, but didnt get a carrier from station
                     elif "NO_BOX" in response:
                         state, id = self._parseCommandInfo(response)
                         if "UnloadBox" in response:
                             errMsg = "Error while unloading carrier: Robotino hasn't a box present"
-                            print("[COMMANDSERVER] " + errMsg)
+                            errLogger.error("[COMMANDSERVER] " + errMsg)
                         elif "LoadBox" in response:
                             errMsg = "Error while loading carrier: Carrier was not sucessfully loaded"
-                            print("[COMMANDSERVER] " + errMsg)
+                            errLogger.error("[COMMANDSERVER] " + errMsg)
                         if self.robotinoManager != None:
-                                self.robotinoManager.handleError(errMsg, id)
+                            self.robotinoManager.handleError(errMsg, id)
                         self.endTask(id)
 
                     # info messages and responses from commands
@@ -162,7 +162,7 @@ class CommandServer(object):
                                    args=[response]).start()
                     # print out response which isnt handled when received
                     else:
-                        print(
+                        errLogger.error(
                             "[COMMANDSERVER] Catched unhandled response from robotino: " + str(response))
 
     # converts the string to binary which the server can send

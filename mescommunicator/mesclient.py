@@ -12,7 +12,7 @@ import socket
 import time
 from threading import Thread
 from .servicerequests import ServiceRequests
-from conf import IP_FLEETIAS, TCP_BUFF_SIZE, IP_MES
+from conf import IP_FLEETIAS, TCP_BUFF_SIZE, IP_MES, errLogger
 
 
 class MESClient(object):
@@ -53,7 +53,7 @@ class MESClient(object):
             cyclicCommunicationThread = Thread(target=self.cyclicCommunication)
             cyclicCommunicationThread.start()
         except Exception as e:
-            print(e)
+            errLogger.error("[MESCLIENT] " + str(e))
 
     # get transport tasks from mes
     # @param:
@@ -82,7 +82,7 @@ class MESClient(object):
             self.SERVICE_SOCKET = socket.socket(
                 socket.AF_INET, socket.SOCK_STREAM)
             self.CYCLIC_SOCKET.connect((self.IP_MES, 2001))
-            print(e)
+            errLogger.error("[MESCLIENT] " + str(e))
 
     # inform mes that robotino loads/unloads carrier
     # @param:
@@ -105,7 +105,7 @@ class MESClient(object):
             self.SERVICE_SOCKET = socket.socket(
                 socket.AF_INET, socket.SOCK_STREAM)
             self.CYCLIC_SOCKET.connect((self.IP_MES, 2001))
-            print(e)
+            errLogger.error("[MESCLIENT] " + str(e))
 
     # delete buffer in mes
     # @params:
@@ -127,7 +127,7 @@ class MESClient(object):
             self.SERVICE_SOCKET = socket.socket(
                 socket.AF_INET, socket.SOCK_STREAM)
             self.CYCLIC_SOCKET.connect((self.IP_MES, 2001))
-            print(e)
+            errLogger.error("[MESCLIENT] " + str(e))
 
     # set docking position in mes
     # @params:
@@ -149,7 +149,7 @@ class MESClient(object):
             self.SERVICE_SOCKET = socket.socket(
                 socket.AF_INET, socket.SOCK_STREAM)
             self.CYCLIC_SOCKET.connect((self.IP_MES, 2001))
-            print(e)
+            errLogger.error("[MESCLIENT] " + str(e))
 
     # Thread for cyclically sending state of robotinos to mes
     def cyclicCommunication(self):

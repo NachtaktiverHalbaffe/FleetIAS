@@ -20,6 +20,7 @@ from robotinomanager.robotinomanager import RobotinoManager  # nopep8
 from commandserver.commandserver import CommandServer  # nopep8
 from mescommunicator.mesclient import MESClient  # nopep8
 from threading import Thread
+from conf import errLogger
 
 
 class GUIManager(object):
@@ -192,7 +193,8 @@ class GUIManager(object):
         if robotino != None:
             robotino.undock()
         else:
-            print("[FLEETIAS] Couldnt execute command becaus robotino is not present")
+            errLogger.error(
+                "[FLEETIAS] Couldnt execute command because robotino is not present")
 
     # callback function to manual trigger docking
     def manualDock(self):
@@ -204,7 +206,8 @@ class GUIManager(object):
         if robotino != None:
             robotino.dock(target)
         else:
-            print("[FLEETIAS] Couldnt execute command becaus robotino is not present")
+            errLogger.error(
+                "[FLEETIAS] Couldnt execute command becaus robotino is not present")
 
     # callback function to manual trigger unloading
     def manualUnloadCarrier(self):
@@ -214,7 +217,8 @@ class GUIManager(object):
         if robotino != None:
             robotino.unloadCarrier()
         else:
-            print("[FLEETIAS] Couldnt execute command becaus robotino is not present")
+            errLogger.error(
+                "[FLEETIAS] Couldnt execute command becaus robotino is not present")
 
     # callback function to manual trigger loading
     def manualLoadCarrier(self):
@@ -224,7 +228,8 @@ class GUIManager(object):
         if robotino != None:
             robotino.loadCarrier()
         else:
-            print("[FLEETIAS] Couldnt execute command becaus robotino is not present")
+            errLogger.error(
+                "[FLEETIAS] Couldnt execute command becaus robotino is not present")
 
     # callback function to manual trigger driving to resource
     def manualDriveTo(self):
@@ -236,7 +241,8 @@ class GUIManager(object):
         if robotino != None:
             robotino.driveTo(target)
         else:
-            print("[FLEETIAS] Couldnt execute command becaus robotino is not present")
+            errLogger.error(
+                "[FLEETIAS] Couldnt execute command becaus robotino is not present")
 
     # callback function to manual tset robotino to automatic operation
     def setAutoMode(self):
@@ -265,9 +271,3 @@ class GUIManager(object):
     def deleteTransportTask(self, transportTask):
         self.transportTasks.remove(transportTask)
         self.fillTableViewMES()
-
-    def pollRobotinos(self):
-        while True:
-            self.statesRobotinos = self.robotinoManager.fleet
-            self.fillTableViewRobotinoManager()
-            time.sleep(1)
