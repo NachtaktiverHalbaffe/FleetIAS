@@ -11,7 +11,7 @@ from .robotino import Robotino
 from threading import Thread, Event
 from PyQt5.QtCore import QThread
 import time
-from conf import POLL_TIME_STATUSUPDATES, POLL_TIME_TASKS
+from conf import POLL_TIME_STATUSUPDATES, POLL_TIME_TASKS, errLogger
 
 
 class RobotinoManager(object):
@@ -296,7 +296,8 @@ class RobotinoManager(object):
         for robotino in self.fleet:
             if robotino.id == id:
                 return robotino
-        print("[ROBOTINOMANAGER] Couldnt return robotino, because it doesnt exist")
+        errLogger.error(
+            "[ROBOTINOMANAGER] Couldnt return robotino, because it doesnt exist")
         return
 
     def startAutomatedOperation(self):

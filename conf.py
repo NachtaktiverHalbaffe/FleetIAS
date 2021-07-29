@@ -18,7 +18,7 @@ POLL_TIME_STATUSUPDATES = 1
 POLL_TIME_TASKS = 3
 
 # setup logging
-log_formatter = logging.Formatter('[%(asctime)s ] %(name)s : %(message)s')
+log_formatter = logging.Formatter('[%(asctime)s ] %(message)s')
 # handler for logging to file
 file_handler = logging.FileHandler("errors.log")
 file_handler.setFormatter(log_formatter)

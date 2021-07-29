@@ -58,7 +58,6 @@ class CommandServer(object):
             try:
                 client, addr = self.SERVER.accept()
                 print("[COMMANDSERVER]: " + str(addr) + "connected to socket")
-                self.getAllRobotinoID()
                 Thread(target=self.commandCommunication,
                        args=[client]).start()
             except Exception as e:
