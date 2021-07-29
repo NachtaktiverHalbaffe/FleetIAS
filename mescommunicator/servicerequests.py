@@ -14,7 +14,7 @@ class ServiceRequests(object):
     def __init__(self):
         self.msg = ""
         # Parameter for service calls
-        self.tcpIdent = 0
+        self.tcpIdent = "33333301"
         self.requestID = 0
         self.mClass = 0
         self.mNo = 0
@@ -66,7 +66,7 @@ class ServiceRequests(object):
         # check if data is a transport task
         if self.mClass == 200 and self.mNo == 21:
             transportTasks = set()
-            for i in range(self.dataLength/16):
+            for i in range(int(len(self.serviceParams)/8)):
                 startId = self.serviceParams[8*i]
                 targetId = self.serviceParams[8*i+4]
                 task = (startId, targetId)
@@ -86,9 +86,9 @@ class ServiceRequests(object):
         self.mClass = 201
         self.mNo = 1
         # id of robotino
-        self.aux1Int = robotinoID
+        self.aux1Int = int(robotinoID)
         # id of resource where robotino is docked
-        self.resourceId = dockedAt
+        self.resourceId = int(dockedAt)
 
     # inform mes that robotino loads/unloads carrier
     # @param:
@@ -99,6 +99,7 @@ class ServiceRequests(object):
         # serviceclass and servicenumber to identify request
         self.mClass = 151
         self.mNo = 5
+        self.dataLength = 12
         # set serviceparams depending on direction
         if isLoading:
             # serviceparams: [id of source, bufNo of source, bufPos of source,
@@ -130,7 +131,6 @@ class ServiceRequests(object):
     def decodeMessage(self, msg):
         self.msg = msg
         if msg[:6] == '333333':
-            self.tcpIdent = "33333302"
             self._decodeBin()
         elif '<CR>' in msg and len(msg.split("<CR>")) > 3:
             # msg is in shortened string format
@@ -143,8 +143,7 @@ class ServiceRequests(object):
 
     # encodes message for PlcServiceOrderSocket in a format so it can be send
     def encodeMessage(self):
-        # self._printAttr()
-        self.tcpIdent = "33333302"
+        self._printAttr()
         return self._encodeBin()
 
     # encodes message with full string format. Excluding the tcpident only the needed parameter are sent.
@@ -401,7 +400,7 @@ class ServiceRequests(object):
 
     def _encodeBin(self):
         # Header
-        msg = "33333333"
+        msg = str(self.tcpIdent)
         msg += self._parseToEndian(self.requestID, False)
         msg += self._parseToEndian(self.mClass, False)
         msg += self._parseToEndian(self.mNo, False)

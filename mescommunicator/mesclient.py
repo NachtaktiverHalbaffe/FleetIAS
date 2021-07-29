@@ -135,7 +135,7 @@ class MESClient(object):
     #   robotinoID: resourceId of robotino which has docked
     def setDockingPos(self, dockedAt, robotinoId):
         requestGenerator = ServiceRequests()
-        requestGenerator.setDockingPos(dockedAt, robotinoId)
+        requestGenerator.setDockingPos(int(dockedAt), int(robotinoId))
         request = requestGenerator.encodeMessage()
         try:
             # send request
