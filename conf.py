@@ -4,7 +4,6 @@ Version name: 1.0, 2021-07-26
 Short description: Configruation File of FleetIAS
 
 (C) 2003-2021 IAS, Universitaet Stuttgart
-
 """
 
 # Conf for TCP-Communication
