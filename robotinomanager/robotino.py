@@ -7,6 +7,7 @@ Short description: Robotino class
 
 """
 from threading import Thread
+from conf import errLogger
 
 
 class Robotino(object):
@@ -56,7 +57,8 @@ class Robotino(object):
             self.busy = False
             self.errorL2 = True
         else:
-            print("[ROBOTINO] Couldnt fetch state from statemessage")
+            errLogger.errorv(
+                "[ROBOTINO] Couldnt fetch state from statemessage")
         # fetch battery voltage
         strBattery = msg.split("batteryvoltage:")
         strBattery = strBattery[1].split(" ")
@@ -70,7 +72,8 @@ class Robotino(object):
             self.laserWarning = True
             self.errorL2 = True
         else:
-            print("[ROBOTINO] Couldnt fetch laserwarning from statemessage")
+            errLogger.error(
+                "[ROBOTINO] Couldnt fetch laserwarning from statemessage")
         # fetch laserSaftey
         strLaserSafey = msg.split("lasersafety:")
         strLaserSafey = strLaserSafey[1].split(" ")
@@ -80,7 +83,8 @@ class Robotino(object):
             self.laserSaftey = True
             self.errorL2 = True
         else:
-            print("[ROBOTINO] Couldnt fetch lasersaftey from statemessage")
+            errLogger.error(
+                "[ROBOTINO] Couldnt fetch lasersaftey from statemessage")
         # fetch boxPresent
         strBox = msg.split("boxpresent:")
         strBox = strBox[1].split(" ")
@@ -89,7 +93,8 @@ class Robotino(object):
         elif "1" in strBox[0]:
             self.boxPresent = True
         else:
-            print("[ROBOTINO] Couldnt fetch boxpresent from statemessage")
+            errLogger.error(
+                "[ROBOTINO] Couldnt fetch boxpresent from statemessage")
         # fetch position x
         strPosX = msg.split("x:")
         strPosX = strPosX[1].split(" ")
@@ -146,7 +151,7 @@ class Robotino(object):
             Thread(target=self.commandServer.dock, args=[self.id]).start()
         else:
             # implement own way of controlling
-            print(
+            errLogger.error(
                 "[ROBOTINO] Old Controls are disabled, but theres no new control for docking implemented")
 
     # push command to undock from resource to robotino and send corresponding servicerequest to mes
@@ -159,7 +164,7 @@ class Robotino(object):
             Thread(target=self.commandServer.undock, args=[self.id]).start()
         else:
             # implement own way of controlling
-            print(
+            errLogger.error(
                 "[ROBOTINO] Old Controls are disabled, but theres no new control for undocking implemented")
 
     # push command to drive to an resource to robotino and send corresponding servicerequest to mes
@@ -173,8 +178,23 @@ class Robotino(object):
                    args=[int(position), self.id]).start()
         else:
             # implement own way of controlling
-            print(
+            errLogger.error(
                 "[ROBOTINO] Old Controls are disabled, but theres no new control for driving to resource implemented")
+
+    # push command to set manually the docking position in the mes
+    # @params:
+    #   position: resourceId of resource which it is docked
+    def setDockingPos(self, position):
+        self.target = int(position)
+        Thread(target=self.mesClient.setDockingPos,
+               args=[int(position), self.id]).start()
+
+    # push command end the task which also resets error
+    def endTask(self):
+        Thread(target=self.commandServer.endTask,
+               args=[self.id]).start()
+        self.target = 0
+        self.task = (0, 0)
     """
     Setter
     """

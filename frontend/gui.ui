@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>853</width>
-    <height>674</height>
+    <width>826</width>
+    <height>648</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -294,8 +294,15 @@
    </item>
    <item>
     <layout class="QGridLayout" name="gridViewManual">
-     <item row="2" column="3">
-      <widget class="QSpinBox" name="inputResourceId"/>
+     <item row="2" column="0">
+      <widget class="QLabel" name="labelRobotinoId">
+       <property name="text">
+        <string>#### Id of robotino</string>
+       </property>
+       <property name="textFormat">
+        <enum>Qt::MarkdownText</enum>
+       </property>
+      </widget>
      </item>
      <item row="3" column="3">
       <widget class="QPushButton" name="buttonUndock">
@@ -307,36 +314,31 @@
        </property>
       </widget>
      </item>
-     <item row="3" column="2">
-      <widget class="QPushButton" name="buttonDock">
+     <item row="4" column="3">
+      <widget class="QPushButton" name="buttonSetManual">
        <property name="text">
-        <string>Dock</string>
-       </property>
-       <property name="autoDefault">
-        <bool>false</bool>
+        <string>Change to manual operation</string>
        </property>
       </widget>
      </item>
-     <item row="2" column="1">
-      <widget class="QSpinBox" name="inputRobtinoId"/>
-     </item>
-     <item row="2" column="0">
-      <widget class="QLabel" name="labelRobotinoId">
+     <item row="4" column="2">
+      <widget class="QPushButton" name="buttonSetAutomatic">
        <property name="text">
-        <string>#### Id of robotino</string>
-       </property>
-       <property name="textFormat">
-        <enum>Qt::MarkdownText</enum>
+        <string>Change to automatic operation</string>
        </property>
       </widget>
      </item>
-     <item row="2" column="2">
-      <widget class="QLabel" name="label">
+     <item row="4" column="1">
+      <widget class="QPushButton" name="buttonDriveTo">
        <property name="text">
-        <string>#### Id of target resource</string>
+        <string>Drive to resource</string>
        </property>
-       <property name="textFormat">
-        <enum>Qt::MarkdownText</enum>
+      </widget>
+     </item>
+     <item row="4" column="0">
+      <widget class="QPushButton" name="buttonSetDockingPos">
+       <property name="text">
+        <string>Set docking position</string>
        </property>
       </widget>
      </item>
@@ -350,31 +352,26 @@
        </property>
       </widget>
      </item>
-     <item row="3" column="0">
-      <widget class="QPushButton" name="buttonLoadCarrier">
+     <item row="2" column="2">
+      <widget class="QLabel" name="label">
        <property name="text">
-        <string>Load Carrier</string>
+        <string>#### Id of target resource</string>
+       </property>
+       <property name="textFormat">
+        <enum>Qt::MarkdownText</enum>
        </property>
       </widget>
      </item>
-     <item row="4" column="0">
-      <widget class="QPushButton" name="buttonDriveTo">
-       <property name="text">
-        <string>Drive to resource</string>
-       </property>
-      </widget>
+     <item row="2" column="1">
+      <widget class="QSpinBox" name="inputRobtinoId"/>
      </item>
-     <item row="4" column="1">
-      <widget class="QPushButton" name="buttonSetAutomatic">
+     <item row="3" column="2">
+      <widget class="QPushButton" name="buttonDock">
        <property name="text">
-        <string>Change to automatic operation</string>
+        <string>Dock</string>
        </property>
-      </widget>
-     </item>
-     <item row="4" column="2">
-      <widget class="QPushButton" name="buttonSetManual">
-       <property name="text">
-        <string>Change to manual operation</string>
+       <property name="autoDefault">
+        <bool>false</bool>
        </property>
       </widget>
      </item>
@@ -385,6 +382,23 @@
        </property>
        <property name="textFormat">
         <enum>Qt::MarkdownText</enum>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="3">
+      <widget class="QSpinBox" name="inputResourceId"/>
+     </item>
+     <item row="3" column="0">
+      <widget class="QPushButton" name="buttonLoadCarrier">
+       <property name="text">
+        <string>Load Carrier</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="0">
+      <widget class="QPushButton" name="buttonEndTask">
+       <property name="text">
+        <string>End Task/Reset Error</string>
        </property>
       </widget>
      </item>

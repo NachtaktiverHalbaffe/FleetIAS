@@ -64,6 +64,8 @@ class GUIManager(object):
         self.ui.buttonDriveTo.clicked.connect(self.manualDriveTo)
         self.ui.buttonSetAutomatic.clicked.connect(self.setAutoMode)
         self.ui.buttonSetManual.clicked.connect(self.setManualMode)
+        self.ui.buttonSetDockingPos.clicked.connect(self.setDockingPos)
+        self.ui.buttonEndTask.clicked.connect(self.endTask)
 
     # fills out the rows of the tableview of robotinomanager
     def fillTableViewRobotinoManager(self):
@@ -242,15 +244,36 @@ class GUIManager(object):
             robotino.driveTo(target)
         else:
             errLogger.error(
-                "[FLEETIAS] Couldnt execute command becaus robotino is not present")
+                "[FLEETIAS] Couldnt execute command because robotino is not present")
 
-    # callback function to manual tset robotino to automatic operation
+    # callback function to manual setdocking Position of robotion
+    def setDockingPos(self):
+        robotino = self.robotinoManager.getRobotino(
+            self.ui.inputRobtinoId.value())
+        target = self.ui.inputResourceId.value()
+        if robotino != None:
+            robotino.setDockingPos(target)
+        else:
+            errLogger.error(
+                "[FLEETIAS] Couldnt execute command because robotino is not present")
+
+    # callback function to manual end task of robotiono
+    def endTask(self):
+        robotino = self.robotinoManager.getRobotino(
+            self.ui.inputRobtinoId.value())
+        if robotino != None:
+            robotino.endTask()
+        else:
+            errLogger.error(
+                "[FLEETIAS] Couldnt execute command because robotino is not present")
+
+    # callback function to manual set robotino to automatic operation
     def setAutoMode(self):
         for robotino in self.statesRobotinos:
             if robotino.id == self.ui.inputRobtinoId.value():
                 robotino.activateAutoMode()
 
-    # callback function to manual tset robotino to manual operation
+    # callback function to manual set robotino to manual operation
     def setManualMode(self):
         for robotino in self.statesRobotinos:
             if robotino.id == self.ui.inputRobtinoId.value():
