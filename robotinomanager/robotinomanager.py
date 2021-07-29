@@ -1,7 +1,7 @@
 """
 Filename: robotinomanager.py
 Version name: 1.0, 2021-07-22
-Short description: class to manage all robotinos (delegate tasks, delegtae statemessages to specific robotino)
+Short description: class to manage all robotinos (delegate tasks, delegate statemessages to specific robotino)
 
 (C) 2003-2021 IAS, Universitaet Stuttgart
 
@@ -41,13 +41,19 @@ class RobotinoManager(object):
         self.fleet = []
         strIds = msg.split("AllRobotinoID")
         strIds = strIds[1].split(",")
-        for id in strIds:
+        if len(strIds) != 0:
+            for id in strIds:
+                robotino = Robotino(mesClient=self.mesClient,
+                                    commandServer=self.commandServer)
+                robotino.id = int(id)
+                robotino.manualMode = True
+                self.fleet.append(robotino)
+        else:
             robotino = Robotino(mesClient=self.mesClient,
                                 commandServer=self.commandServer)
-            robotino.id = int(id)
+            robotino.id = 7
             robotino.manualMode = True
             self.fleet.append(robotino)
-
         self.cyclicThread.start()
         # Thread(target=self.startCyclicStateUpdate).start()
 
@@ -58,6 +64,7 @@ class RobotinoManager(object):
         while not self.stopFlagCyclicUpdates.is_set():
             if time.time() - lastUpdate > self.POLL_TIME_STATEUPDATES:
                 for robotino in self.fleet:
+                    time.sleep(0.002)
                     self.commandServer.getRobotinoInfo(robotino.id)
                 lastUpdate = time.time()
                 self.mesClient.setStatesRobotinos(self.fleet)
@@ -71,35 +78,42 @@ class RobotinoManager(object):
     # operates the robotino in automated operation where it gets the transport tasks from the
     # mes and executes them
     def automatedOperation(self):
+        print("[ROBOTINOMANAGER] Started automated operation")
         lastUpdate = time.time()
-        while not self.stopFlagAutoOperation:
+        while not self.stopFlagAutoOperation.is_set():
             # poll transport task from mes
-            if lastUpdate - time.time > self.POLL_TIME_TASKS:
+            if time.time() - lastUpdate > self.POLL_TIME_TASKS:
                 self.transportTasks = self.mesClient.getTransportTasks(
                     len(self.fleet))
-                self.transportTasks = list(self.transportTasks)
-                # assign Tasks
-                for task in self.transportTasks:
-                    # check if task is already assigned
-                    isAlreadyAssigned = False
-                    for robotino in self.fleet:
-                        if robotino.task == task:
-                            isAlreadyAssigned = True
-                            break
-                    # assign task if it isnt already assigned
-                    if not isAlreadyAssigned:
+                if self.transportTasks != None:
+                    self.transportTasks = list(self.transportTasks)
+                    # assign Tasks
+                    for task in self.transportTasks:
+                        # check if task is already assigned
+                        isAlreadyAssigned = False
                         for robotino in self.fleet:
-                            if robotino.task == (0, 0) and robotino.autoMode:
-                                robotino.task = task
-                                Thread(target=self.executeTransportTask,
-                                       args=[robotino]).start()
+                            if robotino.task == task:
+                                isAlreadyAssigned = True
                                 break
+                        # assign task if it isnt already assigned
+                        if not isAlreadyAssigned:
+                            for robotino in self.fleet:
+                                if robotino.task == (0, 0) and robotino.autoMode:
+                                    print(
+                                        "[ROBOTINOMANAGER] Assigned task to robotino " + str(robotino.id))
+                                    robotino.task = task
+                                    Thread(target=self.executeTransportTask,
+                                           args=[robotino]).start()
+                                    break
+
         # reset stopflag after the automatedOperation got killed
         self.stopFlagAutoOperation.clear()
 
     # execute an transport task which got assigend from the mes
     # @param:
     #   robotino: instance of robotino which executes the task
+    # @return:
+    #   If transport taks gots successfully executed (True) or not/abroted (False)
     def executeTransportTask(self, robotino):
         """
         Load carrier at start
@@ -116,26 +130,42 @@ class RobotinoManager(object):
             id, state = self._parseCommandInfo()
             if id == robotino.id and state == "Finished-GotoPosition":
                 break
+            elif self.stopFlagAutoOperation.is_set():
+                return False
+            else:
+                time.sleep(0.5)
         # dock to resource
         if robotino.dockedAt != robotino.task[0]:
-            robotino.dock(robotino.task[0])
+            robotino.dock(int(robotino.task[0]))
         id, state = self._parseCommandInfo()
         while True:
             id, state = self._parseCommandInfo()
             if id == robotino.id and state == "Finished-DockTo":
                 break
+            elif self.stopFlagAutoOperation.is_set():
+                return False
+            else:
+                time.sleep(0.5)
         # load box
         robotino.loadCarrier()
         while True:
             id, state = self._parseCommandInfo()
             if id == robotino.id and state == "Finished-LoadBox":
                 break
+            elif self.stopFlagAutoOperation.is_set():
+                return False
+            else:
+                time.sleep(0.5)
         # undock
         robotino.undock()
         while True:
             id, state = self._parseCommandInfo()
             if id == robotino.id and state == "Finished-Undock":
                 break
+            elif self.stopFlagAutoOperation.is_set():
+                return False
+            else:
+                time.sleep(0.5)
 
         """
         Unload carrier at target
@@ -152,23 +182,35 @@ class RobotinoManager(object):
             id, state = self._parseCommandInfo()
             if id == robotino.id and state == "Finished-GotoPosition":
                 break
+            elif self.stopFlagAutoOperation.is_set():
+                return False
+            else:
+                time.sleep(0.5)
         self.guiManager.deleteTransportTask(taskInfo)
         taskInfo = (robotino.task[0], robotino.task[1],
                     robotino.id, "unloading")
         self.guiManager.addTransportTask(taskInfo)
         # dock to resource
-        robotino.dock(robotino.task[1])
+        robotino.dock(int(robotino.task[1]))
         id, state = self._parseCommandInfo()
         while True:
             id, state = self._parseCommandInfo()
             if id == robotino.id and state == "Finished-DockTo":
                 break
+            elif self.stopFlagAutoOperation.is_set():
+                return False
+            else:
+                time.sleep(0.5)
         # load box
         robotino.unloadCarrier()
         while True:
             id, state = self._parseCommandInfo()
             if id == robotino.id and state == "Finished-UnloadBox":
                 break
+            elif self.stopFlagAutoOperation.is_set():
+                return False
+            else:
+                time.sleep(0.5)
 
         """
         Finishing task
@@ -190,17 +232,58 @@ class RobotinoManager(object):
         if self.guiManager != None:
             self.guiManager.deleteTransportTask(taskInfo)
 
+        return True
+
+    # handles error when robotino returns an error during operation
+    # @params:
+    #   errMsg: error message
+    #   robotinoId: id of robotino which has the error
+    #   isAutoRetring: if operation is automatically retried (only necessary if package is running without gui)
+    def handleError(self, errMsg, robotinoId, isAutoRetrying=True):
+        if self.guiManager != None:
+            self.guiManager.showErrorDialog(errMsg, robotinoId, self._retryOp)
+        elif isAutoRetrying:
+            self._retryOp(errorMsg=errMsg, robotinoId=robotinoId)
+
+    # retrys the operation
+    # params:
+    #   errorMsg: message of error which identifies the op
+    #   robotinoId: id of robotino with the error
+    #   buttonClicked: button which was clicked in the errordialog (optional)
+    def _retryOp(self, errorMsg, robotinoId, buttonClicked=None):
+        if buttonClicked.text() == "Retry" or buttonClicked == None:
+            robotino = self.robotinoManager.getRobotino(robotinoId)
+            if "loading" in errorMsg:
+                if robotino != None:
+                    robotino.loadCarrier()
+            elif "unloading" in errorMsg:
+                if robotino != None:
+                    robotino.unloadCarrier()
+            elif "driving" in errorMsg:
+                if robotino != None:
+                    robotino.driveTo(robotino.target)
+            elif "docking" in errorMsg:
+                if robotino != None:
+                    robotino.dock(robotino.target)
+            elif "undocking" in errorMsg:
+                if robotino != None:
+                    robotino.undock()
+
     # splits the commandinfo into an id and state
     # @return:
     #   state: string with the state message of the command info
     #   id: resourceId of robotino from which the command info comes
     def _parseCommandInfo(self):
         id = self.commandInfo.split("robotinoid:")
-        id = int(id[1][0])
-        state = self.commandInfo.split("\"")
-        state = state[1]
+        print(id)
+        if id[0] != "":
+            id = int(id[1][0])
+            state = self.commandInfo.split("\"")
+            state = state[1]
 
-        return id, state
+            return id, state
+        else:
+            return 0, ""
 
     """
     Setter and getter
@@ -240,6 +323,5 @@ if __name__ == "__main__":
     mesClient = MESClient()
     robotinoManager = RobotinoManager(
         mesClient=mesClient, commandServer=commandServer)
-
     # link component to robotinomanager so commandserver could update tasks
     commandServer.setRobotinoManager(robotinoManager)

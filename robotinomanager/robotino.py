@@ -30,6 +30,7 @@ class Robotino(object):
         self.positionY = 0.0
         self.positionPhi = 0.0
         self.dockedAt = 0
+        self.target = 0
         # instances of mesclient and commandserver for executing operations
         self.mesClient = mesClient
         self.commandServer = commandServer
@@ -138,6 +139,7 @@ class Robotino(object):
     #   position: resourceId of resource which it docks to
     def dock(self, position):
         self.dockedAt = int(position)
+        self.target = int(position)
         Thread(target=self.mesClient.setDockingPos,
                args=[self.dockedAt, self.id]).start()
         if self.useOldControl:
@@ -164,10 +166,11 @@ class Robotino(object):
     # @params:
     #   position: resourceId of resource which it drives to
     def driveTo(self, position):
+        self.target = int(position)
         # use commands to let robotino drive with its own steering
         if self.useOldControl:
             Thread(target=self.commandServer.goTo,
-                   args=[position, self.id]).start()
+                   args=[int(position), self.id]).start()
         else:
             # implement own way of controlling
             print(

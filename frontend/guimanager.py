@@ -12,7 +12,7 @@ import sys
 import time
 
 from PyQt5 import QtGui, QtWidgets
-from PyQt5.QtCore import QThread  # nopep8
+from PyQt5.QtWidgets import QMessageBox  # nopep8
 sys.path.append('.')  # nopep8
 sys.path.append('..')  # nopep8
 
@@ -92,7 +92,7 @@ class GUIManager(object):
             if batteryLevel > 100 or batteryLevel < 0:
                 batteryLevel = 0
             self.ui.tableViewRobotinos.setItem(
-                rowPosition, 2, QtWidgets.QTableWidgetItem(str(batteryLevel) + " %"))
+                rowPosition, 2, QtWidgets.QTableWidgetItem(str(robotino.batteryVoltage) + " V"))
             # error
             if robotino.laserWarning:
                 self.ui.tableViewRobotinos.setItem(
@@ -138,6 +138,26 @@ class GUIManager(object):
             self.ui.tableViewMes.setItem(
                 rowPosition, 3, QtWidgets.QTableWidgetItem(task[3]))
 
+    def showErrorDialog(self, errMsg, robotinoId, callbackFunc):
+        """
+        Setup Dialog
+        """
+        dialog = QtWidgets.QMessageBox()
+        # set dialog title
+        dialog.setWindowTitle("Error")
+        # set error message and little description what the user can do
+        dialog.setText(errMsg)
+        dialog.setInformativeText(
+            "Click \"Retry\" to retry the operation or click \"Abort\" to abort the operation (Warning: When error occurs on automated operation, the transporttask could get aborted)")
+        # set dialog icon
+        dialog.setIcon(QMessageBox.Critical)
+        # set buttons of dialog
+        dialog.setStandardButtons(QMessageBox.Retry | QMessageBox.Abort)
+        dialog.buttonClicked.connect(lambda: callbackFunc(
+            errorMsg=errMsg, robotinoId=robotinoId))
+
+        x = dialog.exec_()
+
     """
     Callback functions
     """
@@ -156,11 +176,13 @@ class GUIManager(object):
     def startMesClient(self):
         print("[FLEETIAS] Starting MESClient...")
         Thread(target=self.mesClient.run).start()
+        Thread(target=self.robotinoManager.startAutomatedOperation).start()
 
     # callback function to stop mesClient
     def stopMesClient(self):
         print("[FLEETIAS] Stopping MESClient...")
         self.mesClient.stopClient()
+        Thread(target=self.robotinoManager.stopAutomatedOperation).start()
 
     # callback function to manual trigger undocking
     def manualUndock(self):
