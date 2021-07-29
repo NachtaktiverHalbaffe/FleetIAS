@@ -34,6 +34,8 @@ class Robotino(object):
         self.mesClient = mesClient
         self.commandServer = commandServer
         self.task = (0, 0)
+        # settings for robotino
+        self.useOldControl = True
 
     # fetches state message and parses them into the state attributes
     # @params:
@@ -42,7 +44,7 @@ class Robotino(object):
         self.errorL2 = False
         # fetch resourceId
         strId = msg.split("robotinoid:")
-        self.id = int(strId[1][1])
+        self.id = int(strId[1][0])
         # fetch state
         strState = msg.split("state:")
         if "IDLE" in strState[1]:
@@ -57,13 +59,13 @@ class Robotino(object):
         # fetch battery voltage
         strBattery = msg.split("batteryvoltage:")
         strBattery = strBattery[1].split(" ")
-        self.batteryVoltage = float(strBattery[1])
+        self.batteryVoltage = float(strBattery[0])
         # fetch laserwarning
         strLaserWarning = msg.split("laserwarning:")
         strLaserWarning = strLaserWarning[1].split(" ")
-        if "0" in strLaserWarning[1]:
+        if "0" in strLaserWarning[0]:
             self.laserWarning = False
-        elif "1" in strLaserWarning[1]:
+        elif "1" in strLaserWarning[0]:
             self.laserWarning = True
             self.errorL2 = True
         else:
@@ -71,9 +73,9 @@ class Robotino(object):
         # fetch laserSaftey
         strLaserSafey = msg.split("lasersafety:")
         strLaserSafey = strLaserSafey[1].split(" ")
-        if "0" in strLaserSafey[1]:
+        if "0" in strLaserSafey[0]:
             self.laserSaftey = False
-        elif "1" in strLaserSafey[1]:
+        elif "1" in strLaserSafey[0]:
             self.laserSaftey = True
             self.errorL2 = True
         else:
@@ -81,24 +83,24 @@ class Robotino(object):
         # fetch boxPresent
         strBox = msg.split("boxpresent:")
         strBox = strBox[1].split(" ")
-        if "0" in strBox[1]:
+        if "0" in strBox[0]:
             self.boxPresent = False
-        elif "1" in strBox[1]:
+        elif "1" in strBox[0]:
             self.boxPresent = True
         else:
             print("[ROBOTINO] Couldnt fetch boxpresent from statemessage")
         # fetch position x
         strPosX = msg.split("x:")
         strPosX = strPosX[1].split(" ")
-        self.positionX = float(strPosX[1])
+        self.positionX = float(strPosX[0])
         # fetch position y
         strPosY = msg.split("y:")
         strPosY = strPosY[1].split(" ")
-        self.positionY = float(strPosY[1])
+        self.positionY = float(strPosY[0])
         # fetch position phi
         strPosPhi = msg.split("phi:")
         strPosPhi = strPosPhi[1].split(" ")
-        self.positionPhi = float(strPosPhi[1])
+        self.positionPhi = float(strPosPhi[0])
 
     # print out all state attributes of robotino
     def printState(self):
@@ -121,38 +123,55 @@ class Robotino(object):
 
     # push command to load carrier to robotino and send corresponding servicerequest to mes
     def loadCarrier(self):
-        Thread(target=self.commandServer.loadBox, args=[self.id]).start()
         Thread(target=self.mesClient.moveBuf, args=[
-               self.id, self.dockedAt, True]).start()
+            self.id, self.dockedAt, True]).start()
+        Thread(target=self.commandServer.loadBox, args=[self.id]).start()
 
     # push command to unload carrier to robotino and send corresponding servicerequest to mes
     def unloadCarrier(self):
-        Thread(target=self.commandServer.unloadBox, args=[self.id]).start()
         Thread(target=self.mesClient.moveBuf, args=[
-               self.id, self.dockedAt, False]).start()
+            self.id, self.dockedAt, False]).start()
+        Thread(target=self.commandServer.unloadBox, args=[self.id]).start()
 
     # push command to dock to an resource to robotino and send corresponding servicerequest to mes
     # @params:
     #   position: resourceId of resource which it docks to
     def dock(self, position):
-        Thread(target=self.commandServer.dock, args=[self.id]).start()
+        self.dockedAt = int(position)
         Thread(target=self.mesClient.setDockingPos,
-               args=[int(position), self.id]).start()
-        self.dockedAt = position
+               args=[self.dockedAt, self.id]).start()
+        if self.useOldControl:
+            Thread(target=self.commandServer.dock, args=[self.id]).start()
+        else:
+            # implement own way of controlling
+            print(
+                "[ROBOTINO] Old Controls are disabled, but theres no new control for docking implemented")
 
     # push command to undock from resource to robotino and send corresponding servicerequest to mes
     def undock(self):
-        Thread(target=self.commandServer.undock, args=[self.id]).start()
-        Thread(target=self.mesClient.setDockingPos, args=[0, self.id]).start()
         self.dockedAt = 0
+        Thread(target=self.mesClient.setDockingPos,
+               args=[self.dockedAt, self.id]).start()
+
+        if self.useOldControl:
+            Thread(target=self.commandServer.undock, args=[self.id]).start()
+        else:
+            # implement own way of controlling
+            print(
+                "[ROBOTINO] Old Controls are disabled, but theres no new control for undocking implemented")
 
     # push command to drive to an resource to robotino and send corresponding servicerequest to mes
     # @params:
     #   position: resourceId of resource which it drives to
     def driveTo(self, position):
-        Thread(target=self.commandServer.goTo,
-               args=[position, self.id]).start()
-
+        # use commands to let robotino drive with its own steering
+        if self.useOldControl:
+            Thread(target=self.commandServer.goTo,
+                   args=[position, self.id]).start()
+        else:
+            # implement own way of controlling
+            print(
+                "[ROBOTINO] Old Controls are disabled, but theres no new control for driving to resource implemented")
     """
     Setter
     """
@@ -170,3 +189,9 @@ class Robotino(object):
             self.activateAutoMode
         elif str(mode) == "Manual":
             self.activateManualMode
+
+    def enableOldControl(self):
+        self.useOldControl = True
+
+    def disableOldControl(self):
+        self.useOldControl = False
