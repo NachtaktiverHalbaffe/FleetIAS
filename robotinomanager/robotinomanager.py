@@ -119,107 +119,53 @@ class RobotinoManager(object):
         Load carrier at start
         """
         # only do updates in gui if module runs/is configured with gui
-        if self.guiManager != None:
-            taskInfo = (robotino.task[0],
-                        robotino.task[1], robotino.id, "loading")
-            self.guiManager.addTransportTask(taskInfo)
+        taskInfo = (robotino.task[0],
+                    robotino.task[1], robotino.id, "loading")
+        self._updateTaskFrontend(robotino, "loading", taskInfo)
         # drive to start
         if robotino.dockedAt != robotino.task[0]:
             robotino.driveTo(robotino.task[0])
-        while True:
-            id, state = self._parseCommandInfo()
-            if id == robotino.id and state == "Finished-GotoPosition":
-                break
-            elif self.stopFlagAutoOperation.is_set():
-                return False
-            else:
-                time.sleep(0.5)
+        if not self._waitForOpEnd(robotino.id, "Finished-GotoPosition"):
+            return False
         # dock to resource
         if robotino.dockedAt != robotino.task[0]:
             robotino.dock(int(robotino.task[0]))
-        id, state = self._parseCommandInfo()
-        while True:
-            id, state = self._parseCommandInfo()
-            if id == robotino.id and state == "Finished-DockTo":
-                break
-            elif self.stopFlagAutoOperation.is_set():
-                return False
-            else:
-                time.sleep(0.5)
+        if not self._waitForOpEnd(robotino.id, "Finished-DockTo"):
+            return False
         # load box
         robotino.loadCarrier()
-        while True:
-            id, state = self._parseCommandInfo()
-            if id == robotino.id and state == "Finished-LoadBox":
-                break
-            elif self.stopFlagAutoOperation.is_set():
-                return False
-            else:
-                time.sleep(0.5)
+        if not self._waitForOpEnd(robotino.id, "Finished-LoadBox"):
+            return False
         # undock
         robotino.undock()
-        while True:
-            id, state = self._parseCommandInfo()
-            if id == robotino.id and state == "Finished-Undock":
-                break
-            elif self.stopFlagAutoOperation.is_set():
-                return False
-            else:
-                time.sleep(0.5)
+        if not self._waitForOpEnd(robotino.id, "Finished-Undock"):
+            return False
 
         """
         Unload carrier at target
         """
-        # only do updates in gui if module runs/is configured with gui
-        if self.guiManager != None:
-            self.guiManager.deleteTransportTask(taskInfo)
-            taskInfo = (robotino.task[0], robotino.task[1],
-                        robotino.id, "transporting")
-            self.guiManager.addTransportTask(taskInfo)
+        # update state of transport task in gui
+        self._updateTaskFrontend(robotino, "transporting", taskInfo)
         # drive to target
         robotino.driveTo(robotino.task[1])
-        while True:
-            id, state = self._parseCommandInfo()
-            if id == robotino.id and state == "Finished-GotoPosition":
-                break
-            elif self.stopFlagAutoOperation.is_set():
-                return False
-            else:
-                time.sleep(0.5)
-        self.guiManager.deleteTransportTask(taskInfo)
-        taskInfo = (robotino.task[0], robotino.task[1],
-                    robotino.id, "unloading")
-        self.guiManager.addTransportTask(taskInfo)
+        if not self._waitForOpEnd(robotino.id, "Finished-GotoPosition"):
+            return False
+        # update state of transport task in gui
+        self._updateTaskFrontend(robotino, "unloading", taskInfo)
         # dock to resource
         robotino.dock(int(robotino.task[1]))
-        id, state = self._parseCommandInfo()
-        while True:
-            id, state = self._parseCommandInfo()
-            if id == robotino.id and state == "Finished-DockTo":
-                break
-            elif self.stopFlagAutoOperation.is_set():
-                return False
-            else:
-                time.sleep(0.5)
+        if not self._waitForOpEnd(robotino.id, "Finished-DockTo"):
+            return False
         # load box
         robotino.unloadCarrier()
-        while True:
-            id, state = self._parseCommandInfo()
-            if id == robotino.id and state == "Finished-UnloadBox":
-                break
-            elif self.stopFlagAutoOperation.is_set():
-                return False
-            else:
-                time.sleep(0.5)
+        if not self._waitForOpEnd(robotino.id, "Finished-UnloadBox"):
+            return False
 
         """
         Finishing task
         """
-        if self.guiManager != None:
-            self.guiManager.deleteTransportTask(taskInfo)
-            taskInfo = (robotino.task[0], robotino.task[1],
-                        robotino.id, "finished")
-            self.guiManager.addTransportTask(taskInfo)
+        # update state of transport task in gui
+        self._updateTaskFrontend(robotino, "finished", taskInfo)
         # inform robotino
         self.commandServer.ack(robotino.id)
         # remove task from transporttasks
@@ -269,6 +215,22 @@ class RobotinoManager(object):
                 if robotino != None:
                     robotino.undock()
 
+    # waits until automatic operation is cancelled or robotino reports operation end
+    # @params:
+    #   robotinoId: id of robotino which waits
+    #   strFinished: message which is received when operation is finished
+    # @return:
+    #   if operation ended successfully (True) ord not
+    def _waitForOpEnd(self, robotinoId, strFinished):
+        while True:
+            id, state = self._parseCommandInfo()
+            if id == robotinoId and state == strFinished:
+                return True
+            elif self.stopFlagAutoOperation.is_set():
+                return False
+            else:
+                time.sleep(0.5)
+
     # splits the commandinfo into an id and state
     # @return:
     #   state: string with the state message of the command info
@@ -285,6 +247,19 @@ class RobotinoManager(object):
         else:
             return 0, ""
 
+    # updates the state of an transporttaks in the frontend
+    # @params:
+    #   robotino: instance of robotino which executes the task
+    #   strState: String of state which should be dislayed as state in frontend
+    #   taskInfo: current taskinfo which should be udpated
+    def _updateTaskFrontend(self, robotino, strState, taskInfo):
+        # only update if module is run with an frontend/gui
+        if self.guiManager != None:
+            # delete task in frontend
+            self.guiManager.deleteTransportTask(taskInfo)
+            taskInfo = (robotino.task[0], robotino.task[1],
+                        robotino.id, strState)
+            self.guiManager.addTransportTask(taskInfo)
     """
     Setter and getter
     """
