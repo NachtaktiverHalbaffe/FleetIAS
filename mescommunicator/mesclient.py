@@ -111,9 +111,9 @@ class MESClient(object):
     # @params:
     #   isBuffOut: if it is the Buffer Out (True) or Buffer In (False)
     #   robotinoId: resourceId of robotino which buffer should be deleted
-    def delBuf(self, isBuffOut, robotinoId):
+    def delBuf(self, robotinoId):
         requestGenerator = ServiceRequests()
-        requestGenerator.delBuf(isBuffOut, robotinoId)
+        requestGenerator.delBuf(robotinoId)
         request = requestGenerator.encodeMessage()
         try:
             # send request

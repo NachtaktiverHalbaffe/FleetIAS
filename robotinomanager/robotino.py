@@ -129,6 +129,8 @@ class Robotino(object):
 
     # push command to load carrier to robotino and send corresponding servicerequest to mes
     def loadCarrier(self):
+        Thread(target=self.mesClient.delBuf, args=[
+            self.id]).start()
         Thread(target=self.mesClient.moveBuf, args=[
             self.id, self.dockedAt, True]).start()
         Thread(target=self.commandServer.loadBox, args=[self.id]).start()

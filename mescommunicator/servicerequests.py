@@ -112,16 +112,13 @@ class ServiceRequests(object):
     # @params:
     #   isBuffOut: if it is the Buffer Out (True) or Buffer In (False)
     #   robotinoId: resourceId of robotino which buffer should be deleted
-    def delBuf(self, isBuffOut, robotinoId):
+    def delBuf(self,  robotinoId):
         # serviceclass and servicenumber to identify request
         self.mClass = 151
         self.mNo = 12
         # buffer number for buffer which should get deleted
         # 1= buffer out and 2= buffer in
-        if isBuffOut:
-            self.bufNo = 1
-        else:
-            self.bufNo = 2
+        self.bufNo = 1
         # set resource id of resource
         self.resourceId = robotinoId
 
