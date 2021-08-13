@@ -292,5 +292,11 @@ class GUIManager(object):
         self.fillTableViewMES()
 
     def deleteTransportTask(self, transportTask):
-        self.transportTasks.remove(transportTask)
+        if len(self.transportTasks) != 0:
+            transportTaskData= (transportTask[0],transportTask[1])
+            for task in self.transportTasks:
+                currentTaskData = (task[0], task[1])
+                if currentTaskData == transportTaskData:
+                    self.transportTasks.remove(task)
+                    break
         self.fillTableViewMES()
