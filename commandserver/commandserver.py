@@ -142,6 +142,18 @@ class CommandServer(object):
                         self.endTask(id)
 
                     # info messages and responses from commands
+                    # inform robotinomanager about commandinfo
+                    if "CommandInfo" in response:
+                        if self.robotinoManager != None:
+                            Thread(target=self.robotinoManager.setCommandInfo,
+                                   args=[response]).start()
+                            id = response.split("robotinoid:")
+                            if id[0] != "":
+                                id = int(id[1][0])
+                            if self.robotinoManager != None:
+                                robotino = self.robotinoManager.getRobotino(id)
+                                Thread(target=robotino.setCommandInfo,
+                                    args=[response]).start()
                     # fetch state message
                     elif "RobotInfo" in response:
                         strId = response.split("robotinoid:")
@@ -153,11 +165,6 @@ class CommandServer(object):
                     elif "AllRobotinoID" in response:
                         if self.robotinoManager != None:
                             Thread(target=self.robotinoManager.createFleet,
-                                   args=[response]).start()
-                    # inform robotinomanager about commandinfo
-                    elif "CommandInfo" in response:
-                        if self.robotinoManager != None:
-                            Thread(target=self.robotinoManager.setCommandInfo,
                                    args=[response]).start()
                     # print out response which isnt handled when received
                     else:
@@ -247,7 +254,6 @@ class CommandServer(object):
     #   id: resourceId of robotino from which the command info comes
     def _parseCommandInfo(self, msg):
         id = msg.split("robotinoid:")
-        print(id)
         if id[0] != "":
             id = int(id[1][0])
             state = msg.split("\"")
