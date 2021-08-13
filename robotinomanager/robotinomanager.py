@@ -79,7 +79,8 @@ class RobotinoManager(object):
     # mes and executes them
     def automatedOperation(self):
         print("[ROBOTINOMANAGER] Started automated operation")
-        lastUpdate = time.time()
+        self.stopFlagAutoOperation.clear()
+        lastUpdate = time.time() 
         while not self.stopFlagAutoOperation.is_set():
             # poll transport task from mes
             if time.time() - lastUpdate > self.POLL_TIME_TASKS:
@@ -98,13 +99,14 @@ class RobotinoManager(object):
                         # assign task if it isnt already assigned
                         if not isAlreadyAssigned:
                             for robotino in self.fleet:
-                                if robotino.task == (0, 0) and robotino.autoMode:
+                                if robotino.task == (0, 0) and robotino.autoMode and task != (0,0):
                                     print(
                                         "[ROBOTINOMANAGER] Assigned task to robotino " + str(robotino.id))
                                     robotino.task = task
                                     Thread(target=self.executeTransportTask,
                                            args=[robotino]).start()
                                     break
+                    lastUpdate = time.time() 
 
         # reset stopflag after the automatedOperation got killed
         self.stopFlagAutoOperation.clear()
@@ -167,11 +169,7 @@ class RobotinoManager(object):
         # update state of transport task in gui
         self._updateTaskFrontend(robotino, "finished", taskInfo)
         # inform robotino
-        self.commandServer.ack(robotino.id)
-        # remove task from transporttasks
-        tasks = set(self.transportTasks)
-        tasks.remove(robotino.task)
-        self.transportTasks = list(tasks)
+        #self.commandServer.ack(robotino.id)
         # remove task from robotino
         robotino.task = (0, 0)
         # only do updates in gui if module runs/is configured with gui
@@ -237,7 +235,6 @@ class RobotinoManager(object):
     #   id: resourceId of robotino from which the command info comes
     def _parseCommandInfo(self):
         id = self.commandInfo.split("robotinoid:")
-        print(id)
         if id[0] != "":
             id = int(id[1][0])
             state = self.commandInfo.split("\"")
