@@ -81,7 +81,7 @@ class MESClient(object):
         except Exception as e:
             self.SERVICE_SOCKET = socket.socket(
                 socket.AF_INET, socket.SOCK_STREAM)
-            self.CYCLIC_SOCKET.connect((self.IP_MES, 2001))
+            self.SERVICE_SOCKET.connect((self.IP_MES, 2000))
             errLogger.error("[MESCLIENT] " + str(e))
 
     # inform mes that robotino loads/unloads carrier
@@ -104,7 +104,7 @@ class MESClient(object):
         except Exception as e:
             self.SERVICE_SOCKET = socket.socket(
                 socket.AF_INET, socket.SOCK_STREAM)
-            self.CYCLIC_SOCKET.connect((self.IP_MES, 2001))
+            self.SERVICE_SOCKET.connect((self.IP_MES, 2000))
             errLogger.error("[MESCLIENT] " + str(e))
 
     # delete buffer in mes
@@ -126,7 +126,7 @@ class MESClient(object):
         except Exception as e:
             self.SERVICE_SOCKET = socket.socket(
                 socket.AF_INET, socket.SOCK_STREAM)
-            self.CYCLIC_SOCKET.connect((self.IP_MES, 2001))
+            self.SERVICE_SOCKET.connect((self.IP_MES, 2000))
             errLogger.error("[MESCLIENT] " + str(e))
 
     # set docking position in mes
@@ -148,34 +148,36 @@ class MESClient(object):
         except Exception as e:
             self.SERVICE_SOCKET = socket.socket(
                 socket.AF_INET, socket.SOCK_STREAM)
-            self.CYCLIC_SOCKET.connect((self.IP_MES, 2001))
+            self.SERVICE_SOCKET.connect((self.IP_MES, 2000))
             errLogger.error("[MESCLIENT] " + str(e))
+
 
     # Thread for cyclically sending state of robotinos to mes
     def cyclicCommunication(self):
         lastUpdate = time.time()
         while True:
-            if lastUpdate - time.time() >= 1:
+            if time.time() - lastUpdate  >= 1:
                 # send task
                 for i in range(len(self.statesRobotinos)):
                     msg = ""
                     # resourceId of robotino
                     msg += format(self.statesRobotinos[i].id, "04x")
                     # sps type of robotino (set to 2 for readability)
-                    msg += format(2, "04x")
+                    msg += format(2, "02x")
                     # statusbits
-                    statusbits = [
-                        self.statesRobotinos[i].mesMode,
-                        self.statesRobotinos[i].errorL2,
-                        self.statesRobotinos[i].errorL1,
-                        self.statesRobotinos[i].errorL0,
-                        self.statesRobotinos[i].reset,
-                        self.statesRobotinos[i].busy,
-                        self.statesRobotinos[i].manualMode,
-                        self.statesRobotinos[i].autoMode
-                    ]
-                    msg += format(statusbits.packbits, "02x")
-                    self.CYCLIC_SOCKET.send(bytes.fromhex(msg))
+                    statusbits = np.array([
+                        int(self.statesRobotinos[i].mesMode),
+                        int(self.statesRobotinos[i].errorL2),
+                        int(self.statesRobotinos[i].errorL1),
+                        int(self.statesRobotinos[i].errorL0),
+                        int(self.statesRobotinos[i].reset),
+                        int(self.statesRobotinos[i].busy),
+                        int(self.statesRobotinos[i].manualMode),
+                        int(self.statesRobotinos[i].autoMode)
+                    ])
+                    msg += format(np.packbits(statusbits)[0], "02x")
+                    request = bytes.fromhex(msg)
+                    self.CYCLIC_SOCKET.send(request)
                 lastUpdate = time.time()
 
     """
