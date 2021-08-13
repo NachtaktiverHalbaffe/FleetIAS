@@ -9,6 +9,8 @@ Short description: Robotino class
 from threading import Thread
 from conf import errLogger
 
+import time
+
 
 class Robotino(object):
 
@@ -36,6 +38,7 @@ class Robotino(object):
         self.mesClient = mesClient
         self.commandServer = commandServer
         self.task = (0, 0)
+        self.commandInfo = ""
         # settings for robotino
         self.useOldControl = True
 
@@ -57,7 +60,7 @@ class Robotino(object):
             self.busy = False
             self.errorL2 = True
         else:
-            errLogger.errorv(
+            errLogger.error(
                 "[ROBOTINO] Couldnt fetch state from statemessage")
         # fetch battery voltage
         strBattery = msg.split("batteryvoltage:")
@@ -129,17 +132,19 @@ class Robotino(object):
 
     # push command to load carrier to robotino and send corresponding servicerequest to mes
     def loadCarrier(self):
-        Thread(target=self.mesClient.delBuf, args=[
-            self.id]).start()
-        Thread(target=self.mesClient.moveBuf, args=[
-            self.id, self.dockedAt, True]).start()
+        # Thread(target=self.mesClient.delBuf, args=[
+        #     self.id]).start()
         Thread(target=self.commandServer.loadBox, args=[self.id]).start()
+        if self._waitForOpStart("Started-LoadBox"):
+            Thread(target=self.mesClient.moveBuf, args=[
+                self.id, self.dockedAt, True]).start()
 
     # push command to unload carrier to robotino and send corresponding servicerequest to mes
-    def unloadCarrier(self):
-        Thread(target=self.mesClient.moveBuf, args=[
-            self.id, self.dockedAt, False]).start()
+    def unloadCarrier(self):    
         Thread(target=self.commandServer.unloadBox, args=[self.id]).start()
+        if self._waitForOpStart("Started-UnloadBox"):
+            Thread(target=self.mesClient.moveBuf, args=[
+                self.id, self.dockedAt, False]).start()
 
     # push command to dock to an resource to robotino and send corresponding servicerequest to mes
     # @params:
@@ -159,15 +164,15 @@ class Robotino(object):
     # push command to undock from resource to robotino and send corresponding servicerequest to mes
     def undock(self):
         self.dockedAt = 0
-        Thread(target=self.mesClient.setDockingPos,
-               args=[self.dockedAt, self.id]).start()
-
         if self.useOldControl:
             Thread(target=self.commandServer.undock, args=[self.id]).start()
         else:
             # implement own way of controlling
             errLogger.error(
                 "[ROBOTINO] Old Controls are disabled, but theres no new control for undocking implemented")
+        Thread(target=self.mesClient.setDockingPos,
+               args=[self.dockedAt, self.id]).start()
+
 
     # push command to drive to an resource to robotino and send corresponding servicerequest to mes
     # @params:
@@ -197,9 +202,40 @@ class Robotino(object):
                args=[self.id]).start()
         self.target = 0
         self.task = (0, 0)
+
+    # splits the commandinfo into an id and state
+    # @return:
+    #   state: string with the state message of the command info
+    #   id: resourceId of robotino from which the command info comes
+    def _parseCommandInfo(self):
+        id = self.commandInfo.split("robotinoid:")
+        if id[0] != "":
+            id = int(id[1][0])
+            state = self.commandInfo.split("\"")
+            state = state[1]
+
+            return id, state
+        else:
+            return 0, ""
+    
+    # waits until automatic operation is started
+    # @params:
+    #   robotinoId: id of robotino which waits
+    #   strFinished: message which is received when operation is finished
+    # @return:
+    #   if operation ended successfully (True) ord not
+    def _waitForOpStart(self, strFinished):
+        while True:
+            id, state = self._parseCommandInfo()
+            if id == self.id and state == strFinished:
+                return True
+            else:
+                time.sleep(0.5)
     """
     Setter
     """
+    def setCommandInfo(self, msg):
+        self.commandInfo = msg
 
     def activateAutoMode(self):
         self.manualMode = False
