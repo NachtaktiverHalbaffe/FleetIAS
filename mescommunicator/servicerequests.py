@@ -76,6 +76,7 @@ class ServiceRequests(object):
             return transportTasks
         else:
             print("[SERVICEREQUESTS] Received data isnt a transport task")
+            return [(0,0)]
 
     # inform mes about the current docking position
     # @params:
@@ -140,7 +141,6 @@ class ServiceRequests(object):
 
     # encodes message for PlcServiceOrderSocket in a format so it can be send
     def encodeMessage(self):
-        self._printAttr()
         return self._encodeBin()
 
     # encodes message with full string format. Excluding the tcpident only the needed parameter are sent.
