@@ -1,6 +1,6 @@
 """
 Filename: mesclient.py
-Version name: 1.0, 2021-07-21
+Version name: 1.1, 2022-12-02
 Short description: tcp server to receive and send messages to mes
 
 (C) 2003-2021 IAS, Universitaet Stuttgart
@@ -16,7 +16,6 @@ from conf import IP_FLEETIAS, TCP_BUFF_SIZE, IP_MES, errLogger
 
 
 class MESClient(object):
-
     def __init__(self):
         # setup addr
         self.HOST = IP_FLEETIAS
@@ -24,12 +23,10 @@ class MESClient(object):
         self.BUFFSIZE = TCP_BUFF_SIZE
         # setup socket for cyclic communication
         self.CYCLIC_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.CYCLIC_SOCKET.setsockopt(
-            socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.CYCLIC_SOCKET.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         # setup socket for service requests
         self.SERVICE_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.SERVICE_SOCKET.setsockopt(
-            socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.SERVICE_SOCKET.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         # params regarding robotinos
         self.statesRobotinos = []
 
@@ -38,15 +35,15 @@ class MESClient(object):
         self.CYCLIC_SOCKET.close()
         self.SERVICE_SOCKET.close()
 
-    # run/start the mesClient
     def run(self):
+        """
+        Runs/starts the MESClient
+        """
         print("[MESCLIENT] MESClient started")
         self.CYCLIC_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.CYCLIC_SOCKET.setsockopt(
-            socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.CYCLIC_SOCKET.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.SERVICE_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.SERVICE_SOCKET.setsockopt(
-            socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.SERVICE_SOCKET.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             self.CYCLIC_SOCKET.connect((self.IP_MES, 2001))
             self.SERVICE_SOCKET.connect((self.IP_MES, 2000))
@@ -55,12 +52,16 @@ class MESClient(object):
         except Exception as e:
             errLogger.error("[MESCLIENT] " + str(e))
 
-    # get transport tasks from mes
-    # @param:
-    #   noOfActiveAGV: number of active robotinos which can execute tasks
-    # @return:
-    #   transportTasks: set of transport tasks, each item is a tupel with: (startId, targetId)
     def getTransportTasks(self, noOfActiveAGV):
+        """
+        Get transport tasks from IAS-MES
+
+        Args:
+            noOfActiveAGV(int): number of active robotinos which can execute tasks
+
+        Returns:
+            transportTasks (int, int): set of transport tasks, each item is a tupel with: (startId, targetId)
+        """
         # generate request
         requestGenerator = ServiceRequests()
         requestGenerator.getTransportTasks(noOfActiveAGV)
@@ -73,23 +74,24 @@ class MESClient(object):
                 msg = self.SERVICE_SOCKET.recv(self.BUFFSIZE)
                 if msg:
                     responseGenerator = ServiceRequests()
-                    responseGenerator.decodeMessage(
-                        binascii.hexlify(msg).decode())
+                    responseGenerator.decodeMessage(binascii.hexlify(msg).decode())
                     response = responseGenerator.readTransportTasks()
                     return response
 
         except Exception as e:
-            self.SERVICE_SOCKET = socket.socket(
-                socket.AF_INET, socket.SOCK_STREAM)
+            self.SERVICE_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.SERVICE_SOCKET.connect((self.IP_MES, 2000))
             errLogger.error("[MESCLIENT] " + str(e))
 
-    # inform mes that robotino loads/unloads carrier
-    # @param:
-    #   robotinoId: resourceId of the robotino which loads/unloads
-    #   resourceId: resourceId of resource where it loads/unloads the carrier
-    #   isLoading: if robotino loads (True) or unLoads(False) the carrier
     def moveBuf(self, robotinoId, resourceId, isLoading):
+        """
+        Inform mes that robotino loads/unloads carrier
+
+        Args:
+            robotinoId (int): resourceId of the robotino which loads/unloads
+            resourceId (int): resourceId of resource where it loads/unloads the carrier
+            isLoading (bool): if robotino loads (True) or unLoads(False) the carrier
+        """
         requestGenerator = ServiceRequests()
         requestGenerator.moveBuf(robotinoId, resourceId, isLoading)
         request = requestGenerator.encodeMessage()
@@ -102,16 +104,17 @@ class MESClient(object):
                 if msg:
                     return True
         except Exception as e:
-            self.SERVICE_SOCKET = socket.socket(
-                socket.AF_INET, socket.SOCK_STREAM)
+            self.SERVICE_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.SERVICE_SOCKET.connect((self.IP_MES, 2000))
             errLogger.error("[MESCLIENT] " + str(e))
 
-    # delete buffer in mes
-    # @params:
-    #   isBuffOut: if it is the Buffer Out (True) or Buffer In (False)
-    #   robotinoId: resourceId of robotino which buffer should be deleted
     def delBuf(self, robotinoId):
+        """
+        Delete buffer in mes
+
+        Args:
+            robotinoId (int): resourceId of robotino which buffer should be deleted
+        """
         requestGenerator = ServiceRequests()
         requestGenerator.delBuf(robotinoId)
         request = requestGenerator.encodeMessage()
@@ -124,16 +127,18 @@ class MESClient(object):
                 if msg:
                     return True
         except Exception as e:
-            self.SERVICE_SOCKET = socket.socket(
-                socket.AF_INET, socket.SOCK_STREAM)
+            self.SERVICE_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.SERVICE_SOCKET.connect((self.IP_MES, 2000))
             errLogger.error("[MESCLIENT] " + str(e))
 
-    # set docking position in mes
-    # @params:
-    #   dockedAt: resourceId of resource where it is docked at (undocked: dockedAt=0)
-    #   robotinoID: resourceId of robotino which has docked
     def setDockingPos(self, dockedAt, robotinoId):
+        """
+        Set docking position in mes
+
+        Args:
+            dockedAt (int): resourceId of resource where it is docked at (undocked: dockedAt=0)
+            robotinoID (int): resourceId of robotino which has docked
+        """
         requestGenerator = ServiceRequests()
         requestGenerator.setDockingPos(int(dockedAt), int(robotinoId))
         request = requestGenerator.encodeMessage()
@@ -146,17 +151,17 @@ class MESClient(object):
                 if msg:
                     return True
         except Exception as e:
-            self.SERVICE_SOCKET = socket.socket(
-                socket.AF_INET, socket.SOCK_STREAM)
+            self.SERVICE_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.SERVICE_SOCKET.connect((self.IP_MES, 2000))
             errLogger.error("[MESCLIENT] " + str(e))
 
-
-    # Thread for cyclically sending state of robotinos to mes
     def cyclicCommunication(self):
+        """
+        Thread for cyclically sending state of Robotinos to IAS-MES
+        """
         lastUpdate = time.time()
         while True:
-            if time.time() - lastUpdate  >= 1:
+            if time.time() - lastUpdate >= 1:
                 # send task
                 for i in range(len(self.statesRobotinos)):
                     msg = ""
@@ -165,16 +170,18 @@ class MESClient(object):
                     # sps type of robotino (set to 2 for readability)
                     msg += format(2, "02x")
                     # statusbits
-                    statusbits = np.array([
-                        int(self.statesRobotinos[i].mesMode),
-                        int(self.statesRobotinos[i].errorL2),
-                        int(self.statesRobotinos[i].errorL1),
-                        int(self.statesRobotinos[i].errorL0),
-                        int(self.statesRobotinos[i].reset),
-                        int(self.statesRobotinos[i].busy),
-                        int(self.statesRobotinos[i].manualMode),
-                        int(self.statesRobotinos[i].autoMode)
-                    ])
+                    statusbits = np.array(
+                        [
+                            int(self.statesRobotinos[i].mesMode),
+                            int(self.statesRobotinos[i].errorL2),
+                            int(self.statesRobotinos[i].errorL1),
+                            int(self.statesRobotinos[i].errorL0),
+                            int(self.statesRobotinos[i].reset),
+                            int(self.statesRobotinos[i].busy),
+                            int(self.statesRobotinos[i].manualMode),
+                            int(self.statesRobotinos[i].autoMode),
+                        ]
+                    )
                     msg += format(np.packbits(statusbits)[0], "02x")
                     request = bytes.fromhex(msg)
                     self.CYCLIC_SOCKET.send(request)

@@ -386,19 +386,19 @@ class CommandServer(object):
         clientSocket.connect((self.HOSTROS, self.PORTROS))
         # Send command to ROS
         clientSocket.sendall(bytes(json.dumps(request), encoding="utf-8"))
-        while True:
+        while not self.stopFlag.is_set():
             # Wait for response
             data = clientSocket.recv(1024).decode("utf-8")
             if data == ROS_RESP_REACHED_TARGET:
-                rosLogger.log(f"Command run successfully on ROS: PushTarget")
+                rosLogger.info(f"Command run successfully on ROS: PushTarget")
             elif data == ROS_RESP_FEATURE:
-                rosLogger.log(f"Command run successfully on ROS: ActivateFeature")
+                rosLogger.info(f"Command run successfully on ROS: ActivateFeature")
             elif data == ROS_RESP_OFFSET:
-                rosLogger.log(f"Command run successfully on ROS: AddOffset")
+                rosLogger.info(f"Command run successfully on ROS: AddOffset")
             elif data.contains(ROS_RESP_ERR):
-                errLogger.log(msg="[ROS] " + data.split(":")[1])
+                errLogger.info(msg="[ROS] " + data.split(":")[1])
             else:
-                errLogger.log(f"[ROS] Unkown response: {data}")
+                errLogger.error(f"[ROS] Unkown response: {data}")
             clientSocket.close()
             break
 
@@ -413,53 +413,57 @@ class CommandServer(object):
         Returns:
             Nothing
         """
-        rosLogger.log(f"Send Command to ROS: PushTarget with targetID {position}")
+        rosLogger.info(f"Send Command to ROS: PushTarget with targetID {position}")
         request = {
             "command": "PushTarget",
             "robotinoID": resourceId,
             "workstationID": position,
         }
-        self.runClientROS(request)
+        Thread(target=self.runClientROS, args=[request]).start()
 
-    def ROSActivateFeature(self, feature, value=True):
+    def ROSActivateFeature(self, feature, value=True, resourceId=7):
         """
         Sends a command to ROS where a certain feature gets activated (value: True) or deactivated (value: False)
 
         Args:
             feature (str): Name of feature which should get deactivated
             value (bool): If feature should be activated (True) or deactivated (False)
+            resourceID (int): ResourceID of the robotino which should execute this command. Defaults to 7
 
         Returns:
             Nothing
         """
-        rosLogger.log(f"Send Command to ROS: ActivateFeature with value {value}")
+        rosLogger.info(msg=f"Send Command to ROS: ActivateFeature with value {value}")
         request = {
             "command": "PushTarget",
+            "robotinoID": resourceId,
             "feature": feature,
             "value": value,
         }
-        self.runClientROS(request)
+        Thread(target=self.runClientROS, args=[request]).start()
 
-    def ROSAddOffset(self, name, offset):
+    def ROSAddOffset(self, name, offset, resourceId=7):
         """
         Sends a command to ROS to add an Offset to a certain topic
 
         Args:
             name (str): Name of topic to which the offset should be added
             offset (dynamic): Value of offset which should be added to the topic
+            resourceID (int): ResourceID of the robotino which should execute this command. Defaults to 7
 
         Returns:
             Nothing
         """
-        rosLogger.log(
-            f"Send Command to ROS: AddOffset to topic {name} with value {offset}"
+        rosLogger.info(
+            msg=f"Send Command to ROS: AddOffset to topic {name} with value {offset}"
         )
         request = {
             "command": "PushTarget",
+            "robotinoID": resourceId,
             "feature": name,
             "offset": offset,
         }
-        self.runClientROS(request)
+        Thread(target=self.runClientROS, args=[request]).start()
 
     """
     Setter

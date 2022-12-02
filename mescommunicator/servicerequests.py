@@ -10,7 +10,6 @@ import math
 
 
 class ServiceRequests(object):
-
     def __init__(self):
         self.msg = ""
         # Parameter for service calls
@@ -49,26 +48,32 @@ class ServiceRequests(object):
         self.mainPNo = 0
         self.serviceParams = []
 
-    # request to get transport tasks
-    # @param:
-    #   noOfActiveAGV: number of active robotinos which can execute tasks
     def getTransportTasks(self, noOfActiveAGV):
+        """
+        Request to get transport tasks
+
+        Args:
+            noOfActiveAGV(int): number of active Robotinos which can execute tasks
+        """
         # serviceclass and servicenumber to identify request
         self.mClass = 200
         self.mNo = 21
         # number of tasks returned by mes
         self.maxRecords = noOfActiveAGV
 
-    # read the transport task from an response from the mes
-    # @return:
-    #   transportTasks: set of transport tasks, each item is a tupel with: (startId, targetId)
     def readTransportTasks(self):
+        """
+        Read the transport task from an response from the IAS-MES
+
+        Args:
+            transportTasks (int, int): set of transport tasks, each item is a tupel with: (startId, targetId)
+        """
         # check if data is a transport task
         if self.mClass == 200 and self.mNo == 21:
             transportTasks = set()
-            for i in range(int(len(self.serviceParams)/8)):
-                startId = self.serviceParams[8*i]
-                targetId = self.serviceParams[8*i+4]
+            for i in range(int(len(self.serviceParams) / 8)):
+                startId = self.serviceParams[8 * i]
+                targetId = self.serviceParams[8 * i + 4]
                 task = (startId, targetId)
                 # add task to transport task if startId and targetId are valid
                 if startId != 0 and targetId != 0 and startId != targetId:
@@ -76,13 +81,16 @@ class ServiceRequests(object):
             return transportTasks
         else:
             print("[SERVICEREQUESTS] Received data isnt a transport task")
-            return [(0,0)]
+            return [(0, 0)]
 
-    # inform mes about the current docking position
-    # @params:
-    #   dockedAt: resourceId of resource where it is docked at (undocked: dockedAt=0)
-    #   robotinoID: resourceId of robotino which has docked
     def setDockingPos(self, dockedAt, robotinoID):
+        """
+        Inform mes about the current docking position
+
+        Args:
+            dockedAt (int): resourceId of resource where it is docked at (undocked: dockedAt=0)
+            robotinoID (int): resourceId of Robotino which has docked
+        """
         # serviceclass and servicenumber to identify request
         self.mClass = 201
         self.mNo = 1
@@ -91,12 +99,15 @@ class ServiceRequests(object):
         # id of resource where robotino is docked
         self.resourceId = int(dockedAt)
 
-    # inform mes that robotino loads/unloads carrier
-    # @param:
-    #   robotinoId: resourceId of the robotino which loads/unloads
-    #   resourceId: resourceId of resource where it loads/unloads the carrier
-    #   isLoading: if robotino loads (True) or unLoads(False) the carrier
     def moveBuf(self, robotinoId, resourceId, isLoading):
+        """
+        Inform IAS-MES that robotino loads/unloads carrier
+
+        Args:
+            robotinoId (int): resourceId of the robotino which loads/unloads
+            resourceId (int): resourceId of resource where it loads/unloads the carrier
+            isLoading (bool): if robotino loads (True) or unLoads(False) the carrier
+        """
         # serviceclass and servicenumber to identify request
         self.mClass = 151
         self.mNo = 5
@@ -109,11 +120,13 @@ class ServiceRequests(object):
         else:
             self.serviceParams = [robotinoId, 1, 1, resourceId, 2, 1]
 
-    # request mes to delete the buffer
-    # @params:
-    #   isBuffOut: if it is the Buffer Out (True) or Buffer In (False)
-    #   robotinoId: resourceId of robotino which buffer should be deleted
-    def delBuf(self,  robotinoId):
+    def delBuf(self, robotinoId):
+        """
+        Request IAS-MES to delete the buffer
+
+        Args:
+            robotinoId (int): resourceId of robotino which buffer should be deleted
+        """
         # serviceclass and servicenumber to identify request
         self.mClass = 151
         self.mNo = 12
@@ -123,31 +136,41 @@ class ServiceRequests(object):
         # set resource id of resource
         self.resourceId = robotinoId
 
-    # decodes message depending on the formatting specified by tcpident
-    # @param:
-    #   msg: tcp message
     def decodeMessage(self, msg):
+        """
+        Decodes message depending on the formatting specified by tcpident
+
+        Args:
+            msg (str): tcp message
+        """
         self.msg = msg
-        if msg[:6] == '333333':
+        if msg[:6] == "333333":
             self._decodeBin()
-        elif '<CR>' in msg and len(msg.split("<CR>")) > 3:
+        elif "<CR>" in msg and len(msg.split("<CR>")) > 3:
             # msg is in shortened string format
             self._decodeStrShort()
-        elif '=' in msg:
+        elif "=" in msg:
             # msg is in full string format
             self._decodeStrFull()
         else:
             print("[SERVICEREQUESTS] Error, couldn't decode message")
 
-    # encodes message for PlcServiceOrderSocket in a format so it can be send
     def encodeMessage(self):
+        """
+        Encodes message for PlcServiceOrderSocket in a format so it can be send
+
+        Returns:
+            str: Encoded message
+        """
         return self._encodeBin()
 
-    # encodes message with full string format. Excluding the tcpident only the needed parameter are sent.
-    # Format is parameter=value and each parameter is seperated with a ";"
-    # @params: Takes all the neccessary attributes of the Object and parses them
-
     def _encodeStrFull(self):
+        """
+        Encodes message with full string format. Excluding the tcpident only the needed parameter are sent. Format is parameter=value and each parameter is seperated with a ";"
+
+        Args:
+            Takes all the neccessary attributes of the Object and parses them
+        """
         # Header
         msg = str(self.tcpIdent)
         if self.requestID != 0:
@@ -226,6 +249,12 @@ class ServiceRequests(object):
         return msg
 
     def _decodeStrFull(self):
+        """
+        Encodes message in binary format.
+
+        Args:
+            Takes all the neccessary attributes of the Object and parses them
+        """
         # split parameter
         msg = self.msg.split(";")
         # saving all parameter into object
@@ -235,82 +264,85 @@ class ServiceRequests(object):
             # replace <CR> if its in item
             if len(param) == 2:
                 if "<CR>" in param[1]:
-                    param[1] = param[1].replace('<CR>', '')
-            if '444' in item or '445' in item:
+                    param[1] = param[1].replace("<CR>", "")
+            if "444" in item or "445" in item:
                 self.tcpIdent = int(item)
-            elif 'RequestId' in item:
+            elif "RequestId" in item:
                 self.requestID = param[1]
-            elif 'MClass' in item:
+            elif "MClass" in item:
                 self.mClass = param[1]
-            elif 'MNo' in item:
+            elif "MNo" in item:
                 self.mNo = param[1]
-            elif 'ErrorState' in item:
+            elif "ErrorState" in item:
                 self.errorState = param[1]
-            elif 'DataLength' in item:
+            elif "DataLength" in item:
                 self.dataLength = param[1]
 
             # standardparameter
-            elif 'ResourceID' in item:
+            elif "ResourceID" in item:
                 self.resourceId = param[1]
-            elif 'ONo' in item:
+            elif "ONo" in item:
                 self.oNo = param[1]
-            elif 'OPos' in item:
+            elif "OPos" in item:
                 self.oPos = param[1]
-            elif 'wpNo' in item:
+            elif "wpNo" in item:
                 self.wpNo = param[1]
-            elif 'OpNo' in item:
+            elif "OpNo" in item:
                 self.opNo = param[1]
-            elif 'BufNo' in item:
+            elif "BufNo" in item:
                 self.bufNo = param[1]
-            elif 'BufPos' in item:
+            elif "BufPos" in item:
                 self.bufPos = param[1]
-            elif 'CarrierID' in item:
+            elif "CarrierID" in item:
                 self.carrierId = param[1]
-            elif 'PalletID' in item:
+            elif "PalletID" in item:
                 self.palletID = param[1]
-            elif 'PalletPos' in item:
+            elif "PalletPos" in item:
                 self.palletPos = param[1]
-            elif 'PNo' in item:
+            elif "PNo" in item:
                 self.pNo = param[1]
-            elif 'StopperID' in item:
+            elif "StopperID" in item:
                 self.stopperId = param[1]
-            elif 'ErrorStepNo' in item:
+            elif "ErrorStepNo" in item:
                 self.errorStepNo = param[1]
-            elif 'StepNo' in item:
+            elif "StepNo" in item:
                 self.stepNo = param[1]
-            elif 'MaxRecords' in item:
+            elif "MaxRecords" in item:
                 self.maxRecords = param[1]
-            elif 'BoxID' in item:
+            elif "BoxID" in item:
                 self.boxId = param[1]
-            elif 'BoxPos' in item:
+            elif "BoxPos" in item:
                 self.boxPos = param[1]
-            elif 'MainOPos' in item:
+            elif "MainOPos" in item:
                 self.mainOPos = param[1]
-            elif 'BeltNo' in item:
+            elif "BeltNo" in item:
                 self.beltNo = param[1]
-            elif 'CNo' in item:
+            elif "CNo" in item:
                 self.cNo = param[1]
-            elif 'BoxPNo' in item:
+            elif "BoxPNo" in item:
                 self.boxPNo = param[1]
-            elif 'PalletPNo=' in item:
+            elif "PalletPNo=" in item:
                 self.palletPNo = param[1]
-            elif 'Aux1Int' in item:
+            elif "Aux1Int" in item:
                 self.aux1Int = param[1]
-            elif 'Aux2Int' in item:
+            elif "Aux2Int" in item:
                 self.aux2Int = param[1]
-            elif 'Aux1DInt' in item:
+            elif "Aux1DInt" in item:
                 self.aux1DInt = param[1]
-            elif 'Aux2DInt' in item:
+            elif "Aux2DInt" in item:
                 self.aux2DInt = param[1]
-            elif 'MainPNo' in item:
+            elif "MainPNo" in item:
                 self.mainPNo = param[1]
             else:
                 self.serviceParams.append((param[0], param[1]))
 
-    # encodes message with shortemd string format. Like the binary format evry parameter is send in
-    # the right order in ASCII and every parameter is seperated with a "<CR>"
-    # @params: Takes all the neccessary attributes of the Object and parses them
     def _encodeStrShort(self):
+        """
+        Encodes message with shortend string format. Like the binary format evry parameter is send in the right order in ASCII and every parameter is seperated with a "<CR>"
+
+        Args:
+            Takes all the neccessary attributes of the Object and parses them
+        """
         # header
         msg = "445<CR>"
         msg += str(self.requestID) + "<CR>"
@@ -446,14 +478,13 @@ class ServiceRequests(object):
             msg += self._parseToEndian(self.serviceParams[4], False)
         # getUnknownParts
         elif self.mClass == 200 and self.mNo == 5:
-            for i in range(math.ceil(len(self.serviceParams)/35)):
+            for i in range(math.ceil(len(self.serviceParams) / 35)):
                 for j in range(35):
                     if j == 0:
-                        msg += self._parseToEndian(
-                            self.serviceParams[j + 35*i], True)
+                        msg += self._parseToEndian(self.serviceParams[j + 35 * i], True)
                     else:
-                        if len(self.serviceParams) > (j+35*i):
-                            msg += format(self.serviceParams[j + 35*i], "02x")
+                        if len(self.serviceParams) > (j + 35 * i):
+                            msg += format(self.serviceParams[j + 35 * i], "02x")
         elif self.mClass == 100 and self.mNo == 111:
             for i in range(len(self.serviceParams)):
                 msg += format(self.serviceParams[i], "02x")
@@ -465,7 +496,7 @@ class ServiceRequests(object):
 
     def _decodeBin(self):
         # header
-        bytes = list((self.msg[i:i+2] for i in range(0, len(self.msg), 2)))
+        bytes = list((self.msg[i : i + 2] for i in range(0, len(self.msg), 2)))
         self.requestID = self._parseFromEndian(bytes[4:6])
         self.mClass = self._parseFromEndian(bytes[6:8])
         self.mNo = self._parseFromEndian(bytes[8:10])
@@ -506,52 +537,64 @@ class ServiceRequests(object):
             # serviceparams is string
             if self.mClass == 100 and self.mNo == 111:
                 for i in range(128, len(bytes), 1):
-                    self.serviceParams.append(
-                        self._parseFromEndian(bytes[i: i+1]))
+                    self.serviceParams.append(self._parseFromEndian(bytes[i : i + 1]))
             # serviceparams are normal bytes
             else:
                 for i in range(128, len(bytes), 2):
-                    self.serviceParams.append(
-                        self._parseFromEndian(bytes[i: i+2]))
+                    self.serviceParams.append(self._parseFromEndian(bytes[i : i + 2]))
 
-    # parses a number to hex in the binary format
-    # @params:
-    #   number: number to parse
-    #   isInt32: if number is int32 (true) or int16(false)
     def _parseToEndian(self, number, isInt32):
+        """
+        Parses a number to hex in the binary format
+
+        Args:
+            number (int): number to parse
+            isInt32 (bool): if number is int32 (true) or int16(false)
+
+        Returns:
+            str: parsed hex number
+        """
         if isInt32:
             hex = format(number, "08x")
         else:
             hex = format(number, "04x")
 
-        binArray = [hex[i:i+2] for i in range(0, len(hex), 2)]
+        binArray = [hex[i : i + 2] for i in range(0, len(hex), 2)]
         binStr = ""
 
         if self.tcpIdent == "33333302":
             for i in range(0, len(binArray), 1):
                 binStr += binArray[i]
         elif self.tcpIdent == "33333301":
-            for i in range(len(binArray)-1, -1, -1):
+            for i in range(len(binArray) - 1, -1, -1):
                 binStr += binArray[i]
 
         return binStr
 
-    # parses given bytes to number depending if message is in big or little endian
-    # @params:
-    #   bytes: bytes to parse
     def _parseFromEndian(self, bytes):
+        """
+        Parses given bytes to number depending if message is in big or little endian
+
+        Args:
+            bytes(str): bytes to parse
+
+        Returns:
+            int: parsed number
+        """
         nmbrstr = ""
         if self.tcpIdent == "33333302":
             for i in range(0, len(bytes), 1):
                 nmbrstr += bytes[i]
         elif self.tcpIdent == "33333301":
-            for i in range(len(bytes)-1, -1, -1):
+            for i in range(len(bytes) - 1, -1, -1):
                 nmbrstr += bytes[i]
 
         return int(nmbrstr, 16)
 
-    # debugging tool which prints all attributes from instance in a readable format
     def _printAttr(self):
+        """
+        Debugging tool which prints all attributes from instance in a readable format
+        """
         print("tcpIdent: " + str(self.tcpIdent))
         print("requestID: " + str(self.requestID))
         print("mClass: " + str(self.mClass))

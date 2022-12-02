@@ -6,14 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>826</width>
-    <height>648</height>
+    <width>769</width>
+    <height>710</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>FleetIAS</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout_2">
+  <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <layout class="QHBoxLayout" name="titleView">
      <item>
@@ -127,7 +127,6 @@
         </property>
         <property name="font">
          <font>
-          <weight>75</weight>
           <bold>true</bold>
          </font>
         </property>
@@ -138,7 +137,6 @@
         </property>
         <property name="font">
          <font>
-          <weight>75</weight>
           <bold>true</bold>
          </font>
         </property>
@@ -149,7 +147,6 @@
         </property>
         <property name="font">
          <font>
-          <weight>75</weight>
           <bold>true</bold>
          </font>
         </property>
@@ -160,7 +157,6 @@
         </property>
         <property name="font">
          <font>
-          <weight>75</weight>
           <bold>true</bold>
          </font>
         </property>
@@ -171,7 +167,6 @@
         </property>
         <property name="font">
          <font>
-          <weight>75</weight>
           <bold>true</bold>
          </font>
         </property>
@@ -182,30 +177,10 @@
    </item>
    <item>
     <layout class="QGridLayout" name="gridViewMES">
-     <item row="0" column="0">
-      <widget class="QLabel" name="labelMES">
-       <property name="text">
-        <string>## MES</string>
-       </property>
-       <property name="textFormat">
-        <enum>Qt::MarkdownText</enum>
-       </property>
-      </widget>
-     </item>
      <item row="2" column="0">
       <widget class="QPushButton" name="buttonStartMesClient">
        <property name="text">
         <string>Connect to MES</string>
-       </property>
-       <property name="autoDefault">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="1">
-      <widget class="QPushButton" name="buttonStopMesClient">
-       <property name="text">
-        <string>Disconnect from MES</string>
        </property>
        <property name="autoDefault">
         <bool>false</bool>
@@ -250,7 +225,6 @@
         </property>
         <property name="font">
          <font>
-          <weight>75</weight>
           <bold>true</bold>
          </font>
         </property>
@@ -261,7 +235,6 @@
         </property>
         <property name="font">
          <font>
-          <weight>75</weight>
           <bold>true</bold>
          </font>
         </property>
@@ -272,7 +245,6 @@
         </property>
         <property name="font">
          <font>
-          <weight>75</weight>
           <bold>true</bold>
          </font>
         </property>
@@ -283,11 +255,30 @@
         </property>
         <property name="font">
          <font>
-          <weight>75</weight>
           <bold>true</bold>
          </font>
         </property>
        </column>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="QPushButton" name="buttonStopMesClient">
+       <property name="text">
+        <string>Disconnect from MES</string>
+       </property>
+       <property name="autoDefault">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="0">
+      <widget class="QLabel" name="labelMES">
+       <property name="text">
+        <string>## MES</string>
+       </property>
+       <property name="textFormat">
+        <enum>Qt::MarkdownText</enum>
+       </property>
       </widget>
      </item>
     </layout>
@@ -399,6 +390,111 @@
       <widget class="QPushButton" name="buttonEndTask">
        <property name="text">
         <string>End Task/Reset Error</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QGridLayout" name="gridViewROS" rowstretch="0,0,0,0,0,0,0,0">
+     <item row="1" column="0">
+      <widget class="QLabel" name="label_add_offset">
+       <property name="text">
+        <string>#### Add Offset</string>
+       </property>
+       <property name="textFormat">
+        <enum>Qt::MarkdownText</enum>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="0">
+      <widget class="QLabel" name="labelRos">
+       <property name="text">
+        <string>## ROS</string>
+       </property>
+       <property name="textFormat">
+        <enum>Qt::MarkdownText</enum>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="0">
+      <widget class="QLabel" name="label_topic">
+       <property name="text">
+        <string>Topic</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="QComboBox" name="topic_comboBox">
+       <property name="placeholderText">
+        <string>Name of topic</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="2">
+      <widget class="QLabel" name="label_offset">
+       <property name="text">
+        <string>Offset</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="3">
+      <widget class="QDoubleSpinBox" name="offset_value_input"/>
+     </item>
+     <item row="6" column="0">
+      <widget class="QLabel" name="label_activate_feature">
+       <property name="text">
+        <string>#### Activate Feature</string>
+       </property>
+       <property name="textFormat">
+        <enum>Qt::MarkdownText</enum>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="0">
+      <widget class="QLabel" name="label_feature">
+       <property name="text">
+        <string>Feature</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="1">
+      <widget class="QComboBox" name="feature_comboBox">
+       <property name="placeholderText">
+        <string>Name of feature</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="4">
+      <widget class="QPushButton" name="pushButton_offset">
+       <property name="text">
+        <string>Send Command</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="4">
+      <widget class="QPushButton" name="pushButton_feature">
+       <property name="text">
+        <string>Send Command</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QCheckBox" name="useCustomNavigationCB">
+       <property name="font">
+        <font>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>Use ROS</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="2">
+      <widget class="QCheckBox" name="checkBox_feature">
+       <property name="text">
+        <string>Enabled</string>
        </property>
       </widget>
      </item>

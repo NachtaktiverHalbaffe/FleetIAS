@@ -1,9 +1,9 @@
 """
 Filename: robotino.py
-Version name: 1.0, 2021-07-22
+Version name: 1.1, 2022-12-02
 Short description: Robotino class
 
-(C) 2003-2021 IAS, Universitaet Stuttgart
+(C) 2003-2022 IAS, Universitaet Stuttgart
 
 """
 from threading import Thread
@@ -13,7 +13,6 @@ import time
 
 
 class Robotino(object):
-
     def __init__(self, mesClient, commandServer):
         # params for state
         self.id = 0
@@ -42,10 +41,13 @@ class Robotino(object):
         # settings for robotino
         self.useOldControl = True
 
-    # fetches state message and parses them into the state attributes
-    # @params:
-    #   msg: state message from which the information gets fetched
     def fetchStateMsg(self, msg):
+        """
+        Fetches state message and parses them into the state attributes
+
+        Args:
+            msg (str): State message from which the information gets fetched
+        """
         self.errorL2 = False
         # fetch resourceId
         strId = msg.split("robotinoid:")
@@ -60,8 +62,7 @@ class Robotino(object):
             self.busy = False
             self.errorL2 = True
         else:
-            errLogger.error(
-                "[ROBOTINO] Couldnt fetch state from statemessage")
+            errLogger.error("[ROBOTINO] Could'nt fetch state from statemessage")
         # fetch battery voltage
         strBattery = msg.split("batteryvoltage:")
         strBattery = strBattery[1].split(" ")
@@ -75,8 +76,7 @@ class Robotino(object):
             self.laserWarning = True
             self.errorL2 = True
         else:
-            errLogger.error(
-                "[ROBOTINO] Couldnt fetch laserwarning from statemessage")
+            errLogger.error("[ROBOTINO] Couldnt fetch laserwarning from statemessage")
         # fetch laserSaftey
         strLaserSafey = msg.split("lasersafety:")
         strLaserSafey = strLaserSafey[1].split(" ")
@@ -86,8 +86,7 @@ class Robotino(object):
             self.laserSaftey = True
             self.errorL2 = True
         else:
-            errLogger.error(
-                "[ROBOTINO] Couldnt fetch lasersaftey from statemessage")
+            errLogger.error("[ROBOTINO] Couldnt fetch lasersaftey from statemessage")
         # fetch boxPresent
         strBox = msg.split("boxpresent:")
         strBox = strBox[1].split(" ")
@@ -96,8 +95,7 @@ class Robotino(object):
         elif "1" in strBox[0]:
             self.boxPresent = True
         else:
-            errLogger.error(
-                "[ROBOTINO] Couldnt fetch boxpresent from statemessage")
+            errLogger.error("[ROBOTINO] Couldnt fetch boxpresent from statemessage")
         # fetch position x
         strPosX = msg.split("x:")
         strPosX = strPosX[1].split(" ")
@@ -111,8 +109,10 @@ class Robotino(object):
         strPosPhi = strPosPhi[1].split(" ")
         self.positionPhi = float(strPosPhi[0])
 
-    # print out all state attributes of robotino
     def printState(self):
+        """
+        Print out all state attributes of Robotino. Just for debugging
+        """
         print("ResourceId: " + str(self.id))
         print("AutoMode: " + str(self.autoMode))
         print("ManualMode: " + str(self.manualMode))
@@ -130,110 +130,146 @@ class Robotino(object):
         print("Position y: " + str(self.positionY))
         print("Position phi: " + str(self.positionPhi))
 
-    # push command to load carrier to robotino and send corresponding servicerequest to mes
     def loadCarrier(self):
+        """
+        Push command to load carrier to Robotino and send corresponding servicerequest to IAS-MES
+        """
         # Thread(target=self.mesClient.delBuf, args=[
         #     self.id]).start()
         Thread(target=self.commandServer.loadBox, args=[self.id]).start()
         if self._waitForOpStart("Started-LoadBox"):
-            Thread(target=self.mesClient.moveBuf, args=[
-                self.id, self.dockedAt, True]).start()
+            Thread(
+                target=self.mesClient.moveBuf, args=[self.id, self.dockedAt, True]
+            ).start()
 
-    # push command to unload carrier to robotino and send corresponding servicerequest to mes
-    def unloadCarrier(self):    
+    def unloadCarrier(self):
+        """
+        Push command to unload carrier to Robotino and send corresponding servicerequest to IAS-MES
+        """
         Thread(target=self.commandServer.unloadBox, args=[self.id]).start()
         if self._waitForOpStart("Started-UnloadBox"):
-            Thread(target=self.mesClient.moveBuf, args=[
-                self.id, self.dockedAt, False]).start()
+            Thread(
+                target=self.mesClient.moveBuf, args=[self.id, self.dockedAt, False]
+            ).start()
 
-    # push command to dock to an resource to robotino and send corresponding servicerequest to mes
-    # @params:
-    #   position: resourceId of resource which it docks to
     def dock(self, position):
+        """
+        Push command to dock to an resource to Robotino and send corresponding servicerequest to IAS-MES
+
+        Args:
+            position (int): ResourceId of resource which it docks to
+        """
         self.dockedAt = int(position)
         self.target = int(position)
-        Thread(target=self.mesClient.setDockingPos,
-               args=[self.dockedAt, self.id]).start()
+        Thread(
+            target=self.mesClient.setDockingPos, args=[self.dockedAt, self.id]
+        ).start()
         if self.useOldControl:
             Thread(target=self.commandServer.dock, args=[self.id]).start()
         else:
             # implement own way of controlling
             errLogger.error(
-                "[ROBOTINO] Old Controls are disabled, but theres no new control for docking implemented")
+                "[ROBOTINO] Old Controls are disabled, but theres no new control for docking implemented. Using old control"
+            )
+            Thread(target=self.commandServer.dock, args=[self.id]).start()
 
-    # push command to undock from resource to robotino and send corresponding servicerequest to mes
     def undock(self):
+        """
+        Push command to undock from resource to Robotino and send corresponding servicerequest to IAS-MES
+        """
         self.dockedAt = 0
         if self.useOldControl:
             Thread(target=self.commandServer.undock, args=[self.id]).start()
         else:
             # implement own way of controlling
             errLogger.error(
-                "[ROBOTINO] Old Controls are disabled, but theres no new control for undocking implemented")
-        Thread(target=self.mesClient.setDockingPos,
-               args=[self.dockedAt, self.id]).start()
+                "[ROBOTINO] Old Controls are disabled, but theres no new control for undocking implemented. Using old controls"
+            )
+            Thread(target=self.commandServer.undock, args=[self.id]).start()
 
+        Thread(
+            target=self.mesClient.setDockingPos, args=[self.dockedAt, self.id]
+        ).start()
 
-    # push command to drive to an resource to robotino and send corresponding servicerequest to mes
-    # @params:
-    #   position: resourceId of resource which it drives to
     def driveTo(self, position):
+        """
+        Push command to drive to an resource to Robotino and send corresponding servicerequest to IAS-MES
+
+        Args:
+            position (int): ResourceId of resource which it drives to
+        """
         self.target = int(position)
         # use commands to let robotino drive with its own steering
         if self.useOldControl:
-            Thread(target=self.commandServer.goTo,
-                   args=[int(position), self.id]).start()
+            Thread(
+                target=self.commandServer.goTo, args=[int(position), self.id]
+            ).start()
         else:
-            # implement own way of controlling
-            errLogger.error(
-                "[ROBOTINO] Old Controls are disabled, but theres no new control for driving to resource implemented")
+            Thread(
+                target=self.commandServer.goToROS,
+                args=[int(position), self.id],
+            ).start()
 
-    # push command to set manually the docking position in the mes
-    # @params:
-    #   position: resourceId of resource which it is docked
     def setDockingPos(self, position):
-        self.target = int(position)
-        Thread(target=self.mesClient.setDockingPos,
-               args=[int(position), self.id]).start()
+        """
+        Push command to set manually the docking position in the IAS-MES
 
-    # push command end the task which also resets error
+        Args:
+            position (int): ResourceId of resource which it is docked
+        """
+        self.target = int(position)
+        Thread(
+            target=self.mesClient.setDockingPos, args=[int(position), self.id]
+        ).start()
+
     def endTask(self):
-        Thread(target=self.commandServer.endTask,
-               args=[self.id]).start()
+        """
+        Push command end the task which also resets error
+        """
+        Thread(target=self.commandServer.endTask, args=[self.id]).start()
         self.target = 0
         self.task = (0, 0)
 
-    # splits the commandinfo into an id and state
-    # @return:
-    #   state: string with the state message of the command info
-    #   id: resourceId of robotino from which the command info comes
     def _parseCommandInfo(self):
+        """
+        Splits the commandinfo into an id and state
+
+        Returns:
+            state (str): string with the state message of the command info
+            id (int): resourceId of Robotino from which the command info comes
+        """
         id = self.commandInfo.split("robotinoid:")
         if id[0] != "":
             id = int(id[1][0])
-            state = self.commandInfo.split("\"")
+            state = self.commandInfo.split('"')
             state = state[1]
 
             return id, state
         else:
             return 0, ""
-    
-    # waits until automatic operation is started
-    # @params:
-    #   robotinoId: id of robotino which waits
-    #   strFinished: message which is received when operation is finished
-    # @return:
-    #   if operation ended successfully (True) ord not
+
     def _waitForOpStart(self, strFinished):
+        """
+        Waits until automatic operation is started
+
+        Args:
+            robotinoId (int): id of robotino which waits
+            strFinished (str): message which is received when operation is finished
+
+        Returns:
+            bool: If operation ended successfully (True) or not (False)
+        """
         while True:
             id, state = self._parseCommandInfo()
             if id == self.id and state == strFinished:
                 return True
             else:
                 time.sleep(0.5)
+
     """
     Setter
     """
+
     def setCommandInfo(self, msg):
         self.commandInfo = msg
 
