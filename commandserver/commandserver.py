@@ -11,25 +11,53 @@ from types import resolve_bases
 from robotinomanager.robotinomanager import RobotinoManager
 import socket
 from threading import Thread, Event
-from conf import IP_FLEETIAS, TCP_BUFF_SIZE, errLogger
+from conf import IP_ROS, IP_FLEETIAS, TCP_BUFF_SIZE, errLogger, rosLogger, USEROSSYSTEM
+import json
 
 
 class CommandServer(object):
+    """
+    Class for sending commands to robotino or ROS
+
+    Attributes
+    ----------
+    PORT : int
+        TCP Port for the robotino server
+    PORTROS: int
+        TCP port of the ROS TCP server
+    HOST : str
+        IP address of FleetIAS
+    HOSTROS  : str
+        IP adress of ROS master
+    ADDR: (str, int)
+        Complete ip address of robotino server
+    ADDRROS: (str, int)
+        Complete ip address of ROS TCP server
+    """
 
     def __init__(self):
         # setup addr
         self.PORT = 13000
-        self.HOST = IP_FLEETIAS
+        self.PORTROS = 13002
+        # self.HOST = IP_FLEETIAS
+        self.HOST = socket.gethostbyname(socket.gethostname())
+        self.HOSTROS = IP_ROS
         self.ADDR = (self.HOST, self.PORT)
+        self.ADDRROS = (self.HOSTROS, self.PORTROS)
+
         # setup socket
         self.SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.SERVER.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.FORMAT = 'utf-8'
+        self.FORMAT = "utf-8"
         self.buffSize = TCP_BUFF_SIZE
         self.stopFlag = Event()
         # messages
         self.response = ""
         self.encodedMsg = ""
+
+        # messages requested to the ROS pc
+        self.request = {}
+
         # robotinomanager for delegating messages to be handled
         self.robotinoManager = None
 
@@ -51,23 +79,26 @@ class CommandServer(object):
         except Exception as e:
             print(e)
 
-    # Waits for a connection from a plc. When a plc connects,
-    # it starts a new thread for the service specific communication
     def waitForConnection(self):
+        """
+        Waits for a connection from a plc. When a plc connects, it starts a new thread for the service specific communication
+        """
         while not self.stopFlag.is_set():
             try:
                 client, addr = self.SERVER.accept()
                 print("[COMMANDSERVER]: " + str(addr) + "connected to socket")
-                Thread(target=self.commandCommunication,
-                       args=[client]).start()
+                Thread(target=self.commandCommunication, args=[client]).start()
             except Exception as e:
                 print(e)
                 break
 
-    # Thread for the command communication.
-    # @params:
-    #   client: socket of the robotino
     def commandCommunication(self, client):
+        """
+        Thread for the command communication
+
+        Args:
+            client (Client): Socket of the Robotino
+        """
         while not self.stopFlag.is_set():
             if len(self.robotinoManager.fleet) == 0 and self.encodedMsg == "":
                 self.getAllRobotinoID()
@@ -84,10 +115,14 @@ class CommandServer(object):
                     if "NO_RESPONSE_FROM_STATION" in response:
                         state, id = self._parseCommandInfo(response)
                         if "LoadBox" in response:
-                            errMsg = "Error while loading carrier: Station didn't respond"
+                            errMsg = (
+                                "Error while loading carrier: Station didn't respond"
+                            )
                             errLogger.error("[COMMANDSERVER] " + errMsg)
                         elif "UnloadBox" in response:
-                            errMsg = "Error while unloading Carrier: Station didn't respond"
+                            errMsg = (
+                                "Error while unloading Carrier: Station didn't respond"
+                            )
                             errLogger.error("[COMMANDSERVER] " + errMsg)
                         if self.robotinoManager != None:
                             self.robotinoManager.handleError(errMsg, id)
@@ -95,7 +130,9 @@ class CommandServer(object):
                     # robotino tries to undock but isnt docked
                     elif "ROBOT_NOT_DOCKED" in response:
                         state, id = self._parseCommandInfo(response)
-                        errMsg = "Error while undocking from resource: Robotino isn't docked"
+                        errMsg = (
+                            "Error while undocking from resource: Robotino isn't docked"
+                        )
                         errLogger.error("[COMMANDSERVER] " + errMsg)
                         if self.robotinoManager != None:
                             self.robotinoManager.handleError(errMsg, id)
@@ -145,15 +182,18 @@ class CommandServer(object):
                     # inform robotinomanager about commandinfo
                     if "CommandInfo" in response:
                         if self.robotinoManager != None:
-                            Thread(target=self.robotinoManager.setCommandInfo,
-                                   args=[response]).start()
+                            Thread(
+                                target=self.robotinoManager.setCommandInfo,
+                                args=[response],
+                            ).start()
                             id = response.split("robotinoid:")
                             if id[0] != "":
                                 id = int(id[1][0])
                             if self.robotinoManager != None:
                                 robotino = self.robotinoManager.getRobotino(id)
-                                Thread(target=robotino.setCommandInfo,
-                                    args=[response]).start()
+                                Thread(
+                                    target=robotino.setCommandInfo, args=[response]
+                                ).start()
                     # fetch state message
                     elif "RobotInfo" in response:
                         strId = response.split("robotinoid:")
@@ -164,15 +204,23 @@ class CommandServer(object):
                     # create/update fleet
                     elif "AllRobotinoID" in response:
                         if self.robotinoManager != None:
-                            Thread(target=self.robotinoManager.createFleet,
-                                   args=[response]).start()
+                            Thread(
+                                target=self.robotinoManager.createFleet, args=[response]
+                            ).start()
                     # print out response which isnt handled when received
                     else:
                         errLogger.error(
-                            "[COMMANDSERVER] Catched unhandled response from robotino: " + str(response))
+                            "[COMMANDSERVER] Catched unhandled response from robotino: "
+                            + str(response)
+                        )
 
-    # converts the string to binary which the server can send
     def strToBin(self):
+        """
+        Converts the string to binary which the server can send
+
+        Args:
+            self.response:
+        """
         self.encodedMsg = ""
         for i in range(len(self.response)):
             # convert character to hex value
@@ -180,88 +228,238 @@ class CommandServer(object):
         # line of end ascii
         self.encodedMsg += "0a"
 
-    # command to let the robotino load the carrier
-    # @param:
-    #   resourceId: resourceId of robotino which should execute the task
     def loadBox(self, resourceId=7):
+        """
+        Native command to let the robotino load the carrier
+
+        Args:
+            resourceId (int): ResourceId of robotino which should execute the task
+
+        Returns:
+            Nothing
+        """
         self.response = "PushCommand " + str(resourceId) + " LoadBox 0"
         self.strToBin()
 
-    # command to let the robotino unload the carrier
-    # @param:
-    #   resourceId: resourceId of robotino which should execute the task
     def unloadBox(self, resourceId=7):
+        """
+        Native command to let the robotino unload the carrier
+
+        Args:
+            resourceId (int): ResourceId of robotino which should execute the task
+
+        Returns:
+            Nothing
+        """
         self.response = "PushCommand " + str(resourceId) + " UnloadBox 0"
         self.strToBin()
 
-    # command to let the robotino drive to an resource
-    # @param:
-    #   resourceId: resourceId of robotino which should execute the task
-    #   position: resourceId of resource where it should drive to
-    def goTo(self, position,  resourceId=7):
-        self.response = "PushCommand " + \
-            str(resourceId) + " GoToPosition " + str(position)
+    def goTo(self, position, resourceId=7):
+        """
+        Native command to let the robotino drive to an resource
+
+        Args:
+            resourceId (int): ResourceId of Robotino which should execute the task
+            position (int): ResourceId of resource where it should drive to
+
+        Returns:
+            Nothing
+        """
+        self.response = (
+            "PushCommand " + str(resourceId) + " GoToPosition " + str(position)
+        )
         self.strToBin()
 
-    # command to let the robotino dock to a resource
-    # @param:
-    #   resourceId: resourceId of robotino which should execute the task
-    #   position: resourceId of resource where it should dock to
     def dock(self, resourceId=7):
+        """
+        Command to let the robotino dock to a resource
+
+        Args:
+            resourceId (int): ResourceId of robotino which should execute the task
+
+        Returns:
+            Nothing
+        """
         self.response = "PushCommand " + str(resourceId) + " DockTo 1"
         self.strToBin()
 
-    # command to let the robotino undock from an resource
-    # @param:
-    #   resourceId: resourceId of robotino which should execute the task
     def undock(self, resourceId=7):
+        """
+        Command to let the robotino undock from an resource
+
+        Args:
+            resourceId (int): ResourceId of robotino which should execute the task
+
+        Return:
+            Nothing
+        """
         self.response = "PushCommand " + str(resourceId) + " Undock"
         self.strToBin()
 
-    # command to get the state from an robotino
-    # @param:
-    #   resourceId: resourceId of robotino which should execute the task
     def getRobotinoInfo(self, resourceId=7):
+        """
+        Command to get the state from an robotino
+
+        Args:
+            resourceId (int): ResourceId of robotino which should execute the task
+
+        Returns:
+            Nothing
+        """
         self.response = "GetRobotInfo " + str(resourceId)
         self.strToBin()
 
-    # command to get the resourceIds of all active robotinos
     def getAllRobotinoID(self):
+        """
+        Command to get the resourceIds of all active robotinos
+        """
         # self.response = "PushCommand GetAllRobotinoID"
         self.response = "GetAllRobotinoID"
         self.strToBin()
 
-    # command to get the resourceIds of all active robotinos
-    #   resourceId: resourceId of robotino which should execute the task
     def endTask(self, resourceId=7):
+        """
+        Command to get the resourceIds of all active robotinos
+
+        Args:
+            resourceId (int): ResourceId of robotino which should execute the task
+
+        Returns:
+            Nothing
+        """
         # self.response = "PushCommand GetAllRobotinoID"
         self.response = "EndTask " + str(resourceId)
         self.strToBin()
 
-    # command to tell robotino that it has ended it transport task
-    # @param:
-    # @param:
-    #   resourceId: resourceId of robotino which should execute the task
     def ack(self, resourceId=7):
+        """
+        Command to tell robotino that it has ended it transport task
+
+        Args:
+            resourceId (int): ResourceId of robotino which should execute the task
+
+        Returns:
+            Nothing
+        """
         self.response = "PushCommand " + str(resourceId) + " Thank You"
         self.strToBin()
 
-    # splits the commandinfo into an id and state
-    # @param:
-    #   msg: message from which the state and id is extracted
-    # @return:
-    #   state: string with the state message of the command info
-    #   id: resourceId of robotino from which the command info comes
     def _parseCommandInfo(self, msg):
+        """
+        Splits the commandinfo into an id and state
+
+        Args:
+            msg (str): Message from which the state and id is extracted
+
+        Returns:
+            state (string): State message of the command info
+            id (int): ResourceId of Robotino from which the command info comes
+        """
         id = msg.split("robotinoid:")
         if id[0] != "":
             id = int(id[1][0])
-            state = msg.split("\"")
+            state = msg.split('"')
             state = state[1]
 
             return id, state
         else:
             return 0, ""
+
+    def runClientROS(self, request={}):
+        """
+        Starts a client which sends the command to ROS and waits for the response
+
+        Args:
+            request (dict): The command which should be send to ROS. Has following format:
+                    request = {
+                        "command": command,
+                        "someSpecificValueForCommand": value,
+                    }
+        """
+        ROS_RESP_REACHED_TARGET = "Target reached"
+        ROS_RESP_FEATURE = "Feature set"
+        ROS_RESP_OFFSET = "Offset set"
+        ROS_RESP_ERR = "Error"
+
+        # Connect to ROS
+        clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        clientSocket.connect((self.HOSTROS, self.PORTROS))
+        # Send command to ROS
+        clientSocket.sendall(bytes(json.dumps(request), encoding="utf-8"))
+        while True:
+            # Wait for response
+            data = clientSocket.recv(1024).decode("utf-8")
+            if data == ROS_RESP_REACHED_TARGET:
+                rosLogger.log(f"Command run successfully on ROS: PushTarget")
+            elif data == ROS_RESP_FEATURE:
+                rosLogger.log(f"Command run successfully on ROS: ActivateFeature")
+            elif data == ROS_RESP_OFFSET:
+                rosLogger.log(f"Command run successfully on ROS: AddOffset")
+            elif data.contains(ROS_RESP_ERR):
+                errLogger.log(msg="[ROS] " + data.split(":")[1])
+            else:
+                errLogger.log(f"[ROS] Unkown response: {data}")
+            clientSocket.close()
+            break
+
+    def goToROS(self, position, resourceId=7):
+        """
+        Sends a command to ROS where the Robotino should drive to an resource
+
+        Args:
+            position (int): ResourceID of the target resource
+            resourceID (int): ResourceID of the robotino which should execute this command. Defaults to 7
+
+        Returns:
+            Nothing
+        """
+        rosLogger.log(f"Send Command to ROS: PushTarget with targetID {position}")
+        request = {
+            "command": "PushTarget",
+            "robotinoID": resourceId,
+            "workstationID": position,
+        }
+        self.runClientROS(request)
+
+    def ROSActivateFeature(self, feature, value=True):
+        """
+        Sends a command to ROS where a certain feature gets activated (value: True) or deactivated (value: False)
+
+        Args:
+            feature (str): Name of feature which should get deactivated
+            value (bool): If feature should be activated (True) or deactivated (False)
+
+        Returns:
+            Nothing
+        """
+        rosLogger.log(f"Send Command to ROS: ActivateFeature with value {value}")
+        request = {
+            "command": "PushTarget",
+            "feature": feature,
+            "value": value,
+        }
+        self.runClientROS(request)
+
+    def ROSAddOffset(self, name, offset):
+        """
+        Sends a command to ROS to add an Offset to a certain topic
+
+        Args:
+            name (str): Name of topic to which the offset should be added
+            offset (dynamic): Value of offset which should be added to the topic
+
+        Returns:
+            Nothing
+        """
+        rosLogger.log(
+            f"Send Command to ROS: AddOffset to topic {name} with value {offset}"
+        )
+        request = {
+            "command": "PushTarget",
+            "feature": name,
+            "offset": offset,
+        }
+        self.runClientROS(request)
 
     """
     Setter
@@ -282,3 +480,6 @@ class CommandServer(object):
 if __name__ == "__main__":
     sock = CommandServer()
     Thread(target=sock.runServer).start()
+    if USEROSSYSTEM == 1:
+        print("Using ROS System")
+        Thread(target=sock.runClientROS).start()
