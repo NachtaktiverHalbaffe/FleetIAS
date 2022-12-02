@@ -139,23 +139,28 @@ class RobotinoManager(object):
         # only do updates in gui if module runs/is configured with gui
         taskInfo = (robotino.task[0], robotino.task[1], robotino.id, "loading")
         self._updateTaskFrontend(robotino, "loading", taskInfo)
+        robotino.lock.acquire()
         # drive to start
         if robotino.dockedAt != robotino.task[0]:
             robotino.driveTo(robotino.task[0])
         if not self._waitForOpEnd(robotino.id, "Finished-GotoPosition"):
+            robotino.lock.release()
             return False
         # dock to resource
         if robotino.dockedAt != robotino.task[0]:
             robotino.dock(int(robotino.task[0]))
         if not self._waitForOpEnd(robotino.id, "Finished-DockTo"):
+            robotino.lock.release()
             return False
         # load box
         robotino.loadCarrier()
         if not self._waitForOpEnd(robotino.id, "Finished-LoadBox"):
+            robotino.lock.release()
             return False
         # undock
         robotino.undock()
         if not self._waitForOpEnd(robotino.id, "Finished-Undock"):
+            robotino.lock.release()
             return False
 
         # -------------------- Unload carrier at target ------------------------
@@ -164,16 +169,19 @@ class RobotinoManager(object):
         # drive to target
         robotino.driveTo(robotino.task[1])
         if not self._waitForOpEnd(robotino.id, "Finished-GotoPosition"):
+            robotino.lock.release()
             return False
         # update state of transport task in gui
         self._updateTaskFrontend(robotino, "unloading", taskInfo)
         # dock to resource
         robotino.dock(int(robotino.task[1]))
         if not self._waitForOpEnd(robotino.id, "Finished-DockTo"):
+            robotino.lock.release()
             return False
         # load box
         robotino.unloadCarrier()
         if not self._waitForOpEnd(robotino.id, "Finished-UnloadBox"):
+            robotino.lock.release()
             return False
 
         # ---------------------------- Finishing task --------------------------
@@ -188,6 +196,7 @@ class RobotinoManager(object):
         if self.guiManager != None:
             self.guiManager.deleteTransportTask(taskInfo)
 
+        robotino.lock.release()
         return True
 
     def handleError(self, errMsg, robotinoId, isAutoRetrying=True):
