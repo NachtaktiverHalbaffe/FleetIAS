@@ -254,20 +254,27 @@ class CommandServer(object):
         self.response = "PushCommand " + str(resourceId) + " UnloadBox 0"
         self.strToBin()
 
-    def goTo(self, position, resourceId=7):
+    def goTo(self, position, resourceId=7, type="resource"):
         """
         Native command to let the robotino drive to an resource
 
         Args:
             resourceId (int): ResourceId of Robotino which should execute the task
-            position (int): ResourceId of resource where it should drive to
+            position (either int or (int, int)): Either resourceID of the target resource or coordinate. See argument type
+            type (str, optional): Type of position. Can be either "resource" (position: resourceID) or "coordinate" (position (x,y)-tuple). Defaults to "resource"
 
         Returns:
             Nothing
         """
-        self.response = (
-            "PushCommand " + str(resourceId) + " GoToPosition " + str(position)
-        )
+        if type == "resource":
+            self.response = f"PushCommand {resourceId} GoToPosition {position}"
+        elif type == "coordinate":
+            # TODO sniff actual command
+            self.response = f"PushCommand {resourceId} GoToManual {position}"
+        else:
+            errLogger.error(
+                f'{type} is a invalid target type. Must be either "resource" or "coordinate"'
+            )
         self.strToBin()
 
     def dock(self, resourceId=7):
@@ -408,8 +415,8 @@ class CommandServer(object):
 
         Args:
             position (either int or (int, int)): Either resourceID of the target resource or coordinate. See argument type
-            type (str): Type of position. Can be either "resource" (position: resourceID) or "coordinate" (position (x,y)-tuple)
-            resourceID (int): ResourceID of the robotino which should execute this command. Defaults to 7
+            type (str, optional): Type of position. Can be either "resource" (position: resourceID) or "coordinate" (position (x,y)-tuple). Defaults to "resource"
+            resourceID (int, optional): ResourceID of the robotino which should execute this command. Defaults to 7
 
         Returns:
             Nothing

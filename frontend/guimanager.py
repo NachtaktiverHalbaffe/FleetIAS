@@ -60,13 +60,14 @@ class GUIManager(object):
         self.ui.buttonUnloadCarrier.clicked.connect(self.manualUnloadCarrier)
         self.ui.buttonLoadCarrier.clicked.connect(self.manualLoadCarrier)
         self.ui.buttonDriveTo.clicked.connect(self.manualDriveTo)
+        self.ui.buttonDriveToPos.clicked.connect(self.manualDriveToPos)
         self.ui.buttonSetAutomatic.clicked.connect(self.setAutoMode)
         self.ui.buttonSetManual.clicked.connect(self.setManualMode)
         self.ui.buttonSetDockingPos.clicked.connect(self.setDockingPos)
         self.ui.buttonEndTask.clicked.connect(self.endTask)
 
         # ------------------------------ ROS ------------------------------------
-        self.ui.useCustomNavigationCB.clicked.connect(self.readUseCustomNavigation)
+        self.ui.useCustomNavigationCB.clicked.connect(self.readUseROS)
         self.ui.pushButton_offset.clicked.connect(self.sendCommandAddOffset)
         self.ui.pushButton_feature.clicked.connect(self.sendCommandActivateFeature)
 
@@ -290,9 +291,33 @@ class GUIManager(object):
         robotino = self.robotinoManager.getRobotino(self.ui.inputRobtinoId.value())
         if robotino != None:
             if not self.useROS:
+                # Use proprietary Robotino stack
                 robotino.driveTo(target)
             else:
+                # Use ROS Robotino stack
                 robotino.driveToROS(target)
+        else:
+            errLogger.error(
+                "[FLEETIAS] Couldnt execute command because robotino is not present"
+            )
+
+    def manualDriveToPos(self):
+        """
+        Callback function to manual trigger driving to a coordinate
+        """
+        x = self.ui.xSpinBox.value()
+        y = self.ui.ySpinBox.value()
+        print(
+            "[FLEETIAS] Manual send command to robotino to drive to coordinate ({x},{y})"
+        )
+        robotino = self.robotinoManager.getRobotino(self.ui.inputRobtinoId.value())
+        if robotino != None:
+            if not self.useROS:
+                # Use proprietary Robotino stack
+                robotino.driveToCor((x, y))
+            else:
+                # Use ROS Robotino stack
+                robotino.driveToCorROS((x, y))
         else:
             errLogger.error(
                 "[FLEETIAS] Couldnt execute command because robotino is not present"
@@ -339,7 +364,7 @@ class GUIManager(object):
             if robotino.id == self.ui.inputRobtinoId.value():
                 robotino.activateManualMode()
 
-    def readUseCustomNavigation(self):
+    def readUseROS(self):
         """
         Callback function to use ros
         """

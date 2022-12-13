@@ -211,9 +211,29 @@ class Robotino(object):
                 "[ROBOTINO] Old Controls are disabled, but theres no new control for undocking implemented. Using old controls"
             )
 
+    def driveToCor(self, position):
+        """
+        Push command to drive to a coordinate to Robotino and send corresponding servicerequest to IAS-MES
+
+        Args:
+             position ((int, int)): Coordinate where the Robotio should drive to. Is a (x,y)-tuple
+        """
+        self.target = int(position)
+        # use commands to let robotino drive with its own steering
+        if self.useOldControl:
+            Thread(
+                target=self.commandServer.goTo,
+                args=[int(position), self.id, "coordinate"],
+            ).start()
+        else:
+            # implement own way of controlling
+            errLogger.error(
+                "[ROBOTINO] Old Controls are disabled, but theres no new control for undocking implemented. Using old controls"
+            )
+
     def driveToROS(self, position):
         """
-        Push command to drive to an resource to Robotino and send corresponding servicerequest to IAS-MES
+        Push command to drive to an resource using the ROS-Stack
 
         Args:
             position (int): ResourceId of resource which it drives to
@@ -221,6 +241,20 @@ class Robotino(object):
         Thread(
             target=self.commandServer.goToROS,
             args=[int(position), self.id],
+        ).start()
+
+    def driveToCorROS(self, position):
+        """
+        Push command to drive to a coordinate using the ROS-Stack
+
+        Args:
+            position ((int, int)): Coordinate where the Robotio should drive to. Is a (x,y)-tuple
+        """
+        x = int(position[0])
+        y = int(position[1])
+        Thread(
+            target=self.commandServer.goToROS,
+            args=[(x, y), self.id, "coordinate"],
         ).start()
 
     def setDockingPos(self, position):
