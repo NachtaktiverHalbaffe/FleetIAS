@@ -402,23 +402,58 @@ class CommandServer(object):
             clientSocket.close()
             break
 
-    def goToROS(self, position, resourceId=7):
+    def goToROS(self, position, resourceId=7, type="resource"):
         """
         Sends a command to ROS where the Robotino should drive to an resource
 
         Args:
-            position (int): ResourceID of the target resource
+            position (either int or (int, int)): Either resourceID of the target resource or coordinate. See argument type
+            type (str): Type of position. Can be either "resource" (position: resourceID) or "coordinate" (position (x,y)-tuple)
             resourceID (int): ResourceID of the robotino which should execute this command. Defaults to 7
 
         Returns:
             Nothing
         """
-        rosLogger.info(f"Send Command to ROS: PushTarget with targetID {position}")
-        request = {
-            "command": "PushTarget",
-            "robotinoID": resourceId,
-            "workstationID": position,
-        }
+        if type == "resource":
+            # Type checking
+            if position > 0 and position < 8:
+                rosLogger.info(
+                    f"Send Command to ROS: PushTarget with targetID {position}"
+                )
+                request = {
+                    "command": "PushTarget",
+                    "robotinoID": resourceId,
+                    "type": type,
+                    "workstationID": position,
+                }
+            else:
+                errLogger.error(
+                    f"Argument position {position} has wrong format. Must be a int betwenn 1 and 7"
+                )
+                return
+        elif type == "coordinate":
+            if (position[0] >= 0 and position[0] <= 200) and (
+                position[1] >= 0 and position[1] <= 200
+            ):
+                rosLogger.info(
+                    f"Send Command to ROS: PushTarget with coordinate {position.toString()}"
+                )
+                request = {
+                    "command": "PushTarget",
+                    "robotinoID": resourceId,
+                    "type": type,
+                    "coordinate": position,
+                }
+            else:
+                errLogger.error(
+                    "Argument position {position} has wrong format. Must be a tuple (x,y), where both x and y are int betwenn 0 and 200"
+                )
+                return
+        else:
+            errLogger.error(
+                f'{type} is a invalid target type. Must be either "resource" or "coordinate"'
+            )
+            return
         Thread(target=self.runClientROS, args=[request]).start()
 
     def ROSActivateFeature(self, feature, value=True, resourceId=7):
@@ -433,14 +468,19 @@ class CommandServer(object):
         Returns:
             Nothing
         """
-        rosLogger.info(msg=f"Send Command to ROS: ActivateFeature with value {value}")
-        request = {
-            "command": "PushTarget",
-            "robotinoID": resourceId,
-            "feature": feature,
-            "value": value,
-        }
-        Thread(target=self.runClientROS, args=[request]).start()
+        if type(value) == bool:
+            rosLogger.info(
+                msg=f"Send Command to ROS: ActivateFeature with value {value}"
+            )
+            request = {
+                "command": "PushTarget",
+                "robotinoID": resourceId,
+                "feature": feature,
+                "value": value,
+            }
+            Thread(target=self.runClientROS, args=[request]).start()
+        else:
+            errLogger.error("Wrong argument value: {value}. Must be an bool")
 
     def ROSAddOffset(self, name, offset, resourceId=7):
         """
@@ -454,16 +494,21 @@ class CommandServer(object):
         Returns:
             Nothing
         """
-        rosLogger.info(
-            msg=f"Send Command to ROS: AddOffset to topic {name} with value {offset}"
-        )
-        request = {
-            "command": "PushTarget",
-            "robotinoID": resourceId,
-            "feature": name,
-            "offset": offset,
-        }
-        Thread(target=self.runClientROS, args=[request]).start()
+        if type(offset) == float:
+            rosLogger.info(
+                msg=f"Send Command to ROS: AddOffset to topic {name} with value {offset}"
+            )
+            request = {
+                "command": "PushTarget",
+                "robotinoID": resourceId,
+                "feature": name,
+                "offset": offset,
+            }
+            Thread(target=self.runClientROS, args=[request]).start()
+        else:
+            errLogger.error(
+                f"Argument offset: {offset} has wrong format. Must be an float"
+            )
 
     """
     Setter
