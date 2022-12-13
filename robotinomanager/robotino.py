@@ -174,7 +174,6 @@ class Robotino(object):
             errLogger.error(
                 "[ROBOTINO] Old Controls are disabled, but theres no new control for docking implemented. Using old control"
             )
-            Thread(target=self.commandServer.dock, args=[self.id]).start()
 
     def undock(self):
         """
@@ -188,7 +187,6 @@ class Robotino(object):
             errLogger.error(
                 "[ROBOTINO] Old Controls are disabled, but theres no new control for undocking implemented. Using old controls"
             )
-            Thread(target=self.commandServer.undock, args=[self.id]).start()
 
         Thread(
             target=self.mesClient.setDockingPos, args=[self.dockedAt, self.id]
@@ -208,10 +206,22 @@ class Robotino(object):
                 target=self.commandServer.goTo, args=[int(position), self.id]
             ).start()
         else:
-            Thread(
-                target=self.commandServer.goToROS,
-                args=[int(position), self.id],
-            ).start()
+            # implement own way of controlling
+            errLogger.error(
+                "[ROBOTINO] Old Controls are disabled, but theres no new control for undocking implemented. Using old controls"
+            )
+
+    def driveToROS(self, position):
+        """
+        Push command to drive to an resource to Robotino and send corresponding servicerequest to IAS-MES
+
+        Args:
+            position (int): ResourceId of resource which it drives to
+        """
+        Thread(
+            target=self.commandServer.goToROS,
+            args=[int(position), self.id],
+        ).start()
 
     def setDockingPos(self, position):
         """

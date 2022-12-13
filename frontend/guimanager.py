@@ -38,7 +38,7 @@ class GUIManager(object):
         # data which is being displayed
         self.statesRobotinos = []
         self.transportTasks = set()
-        self.UseCustomNavigation = False
+        self.useROS = False
 
     def __del__(self):
         self.commandServer.stopServer()
@@ -289,7 +289,10 @@ class GUIManager(object):
         )
         robotino = self.robotinoManager.getRobotino(self.ui.inputRobtinoId.value())
         if robotino != None:
-            robotino.driveTo(target)
+            if not self.useROS:
+                robotino.driveTo(target)
+            else:
+                robotino.driveToROS(target)
         else:
             errLogger.error(
                 "[FLEETIAS] Couldnt execute command because robotino is not present"
@@ -340,9 +343,10 @@ class GUIManager(object):
         """
         Callback function to use ros
         """
-        self.robotinoManager.setUseOldControlForWholeFleet(
-            self.ui.useCustomNavigationCB.isChecked()
-        )
+        # self.robotinoManager.setUseOldControlForWholeFleet(
+        #     self.ui.useCustomNavigationCB.isChecked()
+        # )
+        self.useROS = self.ui.useCustomNavigationCB.isChecked()
 
     def sendCommandAddOffset(self):
         """
