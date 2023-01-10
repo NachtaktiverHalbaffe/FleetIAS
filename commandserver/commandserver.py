@@ -7,7 +7,6 @@ Short description: tcp server to receive and send commands to robotino
 
 """
 
-from types import resolve_bases
 from robotinomanager.robotinomanager import RobotinoManager
 import socket
 from threading import Thread, Event
@@ -480,7 +479,7 @@ class CommandServer(object):
                 msg=f"Send Command to ROS: ActivateFeature with value {value}"
             )
             request = {
-                "command": "PushTarget",
+                "command": "ActivateFeature",
                 "robotinoID": resourceId,
                 "feature": feature,
                 "value": value,
@@ -505,8 +504,9 @@ class CommandServer(object):
             rosLogger.info(
                 msg=f"Send Command to ROS: AddOffset to topic {name} with value {offset}"
             )
+            # TODO Make offset to a tuple
             request = {
-                "command": "PushTarget",
+                "command": "AddOffset",
                 "robotinoID": resourceId,
                 "feature": name,
                 "offset": offset,
