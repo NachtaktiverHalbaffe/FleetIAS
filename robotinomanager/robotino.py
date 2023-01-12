@@ -7,9 +7,8 @@ Short description: Robotino class
 
 """
 from threading import Thread
-import threading
 from conf import errLogger
-
+import threading
 import time
 
 
@@ -42,7 +41,7 @@ class Robotino(object):
         # settings for robotino
         self.useOldControl = True
         # For task execution sychronization
-        self.lock = threading.lock
+        self.lock = threading.Lock()
 
     def fetchStateMsg(self, msg):
         """
