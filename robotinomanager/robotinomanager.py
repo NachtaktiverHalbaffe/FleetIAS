@@ -69,6 +69,7 @@ class RobotinoManager(QThread):
         except:
             pass
         appLogger.info("Stopped RobotinoManager")
+        self.fleet = []
 
     def createFleet(self, msg):
         """

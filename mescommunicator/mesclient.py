@@ -10,7 +10,7 @@ import binascii
 import numpy as np
 import socket
 import time
-from PySide6.QtCore import QThread
+from PySide6.QtCore import QThread, Signal
 from threading import Event
 
 from .servicerequests import ServiceRequests
@@ -18,6 +18,8 @@ from conf import IP_FLEETIAS, TCP_BUFF_SIZE, IP_MES, appLogger
 
 
 class MESClient(QThread):
+    stoppedSignal = Signal()
+
     def __init__(self):
         super(MESClient, self).__init__()
         # setup addr
@@ -59,7 +61,7 @@ class MESClient(QThread):
             self.cyclicCommunication()
         except Exception as e:
             appLogger.error("[MESCLIENT] " + str(e))
-        self.stopClient()
+        self.stoppedSignal.emit()
 
     def getTransportTasks(self, noOfActiveAGV):
         """

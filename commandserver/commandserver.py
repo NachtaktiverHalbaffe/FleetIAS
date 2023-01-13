@@ -11,7 +11,7 @@ Short description: tcp server to receive and send commands to robotino
 import socket
 import json
 from threading import Thread, Event
-from PySide6.QtCore import QThread
+from PySide6.QtCore import QThread, Signal
 
 from conf import IP_ROS, IP_FLEETIAS, TCP_BUFF_SIZE, appLogger, rosLogger
 from robotinomanager.robotinomanager import RobotinoManager
@@ -36,6 +36,8 @@ class CommandServer(QThread):
     ADDRROS: (str, int)
         Complete ip address of ROS TCP server
     """
+
+    stoppedSignal = Signal()
 
     def __init__(self):
         super(CommandServer, self).__init__()
@@ -68,15 +70,16 @@ class CommandServer(QThread):
         self.stopFlag.clear()
         self.SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.SERVER.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.SERVER.bind(self.ADDR)
-        self.SERVER.listen()
         appLogger.info("Commandserver started")
         # Start Tcp server
         try:
+            self.SERVER.bind(self.ADDR)
+            self.SERVER.listen()
             self.waitForConnection()
         except Exception as e:
             appLogger.error(e)
-        self.stopServer()
+
+        self.stoppedSignal.emit()
 
     def waitForConnection(self):
         """

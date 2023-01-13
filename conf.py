@@ -13,9 +13,6 @@ IP_MES = "129.69.102.129"
 IP_ROS = "129.69.102.239"
 TCP_BUFF_SIZE = 512
 
-# Whether to use ROS system or not
-USEROSSYSTEM = 1
-
 # Poll times (in seconds)
 POLL_TIME_STATUSUPDATES = 1
 POLL_TIME_TASKS = 3
