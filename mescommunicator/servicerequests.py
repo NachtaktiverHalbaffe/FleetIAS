@@ -7,6 +7,7 @@ Short description: servicerequests which can be send and received to mes
 
 """
 import math
+from conf import appLogger
 
 
 class ServiceRequests(object):
@@ -80,7 +81,7 @@ class ServiceRequests(object):
                     transportTasks.add(task)
             return transportTasks
         else:
-            print("[SERVICEREQUESTS] Received data isnt a transport task")
+            appLogger.warning("Received data isnt a transport task")
             return [(0, 0)]
 
     def setDockingPos(self, dockedAt, robotinoID):
@@ -153,7 +154,7 @@ class ServiceRequests(object):
             # msg is in full string format
             self._decodeStrFull()
         else:
-            print("[SERVICEREQUESTS] Error, couldn't decode message")
+            appLogger.warning("Error, couldn't decode message")
 
     def encodeMessage(self):
         """
@@ -595,37 +596,37 @@ class ServiceRequests(object):
         """
         Debugging tool which prints all attributes from instance in a readable format
         """
-        print("tcpIdent: " + str(self.tcpIdent))
-        print("requestID: " + str(self.requestID))
-        print("mClass: " + str(self.mClass))
-        print("mNo: " + str(self.mNo))
-        print("errorState: " + str(self.errorState))
-        print("dataLength: " + str(self.dataLength))
-        print("resourceId: " + str(self.resourceId))
-        print("oNo: " + str(self.oNo))
-        print("oPos: " + str(self.oPos))
-        print("wpNo: " + str(self.wpNo))
-        print("opNo: " + str(self.opNo))
-        print("bufNo: " + str(self.bufNo))
-        print("bufPos: " + str(self.bufPos))
-        print("carrierId: " + str(self.carrierId))
-        print("palletID: " + str(self.palletID))
-        print("palletPos: " + str(self.palletPos))
-        print("pNo: " + str(self.pNo))
-        print("stopperId: " + str(self.stopperId))
-        print("errorStepNo: " + str(self.errorStepNo))
-        print("stepNo: " + str(self.stepNo))
-        print("maxRecords: " + str(self.maxRecords))
-        print("boxId: " + str(self.boxId))
-        print("boxPos: " + str(self.boxPos))
-        print("mainOPos: " + str(self.mainOPos))
-        print("beltNo: " + str(self.beltNo))
-        print("cNo: " + str(self.cNo))
-        print("boxPNo: " + str(self.boxPNo))
-        print("palletPNo: " + str(self.palletPNo))
-        print("aux1Int: " + str(self.aux1Int))
-        print("aux2Int: " + str(self.aux2Int))
-        print("aux1DInt: " + str(self.aux1DInt))
-        print("aux2DInt: " + str(self.aux2DInt))
-        print("mainPNo: " + str(self.mainPNo))
-        print("serviceParams: " + str(self.serviceParams))
+        appLogger.debug("tcpIdent: " + str(self.tcpIdent))
+        appLogger.debug("requestID: " + str(self.requestID))
+        appLogger.debug("mClass: " + str(self.mClass))
+        appLogger.debug("mNo: " + str(self.mNo))
+        appLogger.debug("errorState: " + str(self.errorState))
+        appLogger.debug("dataLength: " + str(self.dataLength))
+        appLogger.debug("resourceId: " + str(self.resourceId))
+        appLogger.debug("oNo: " + str(self.oNo))
+        appLogger.debug("oPos: " + str(self.oPos))
+        appLogger.debug("wpNo: " + str(self.wpNo))
+        appLogger.debug("opNo: " + str(self.opNo))
+        appLogger.debug("bufNo: " + str(self.bufNo))
+        appLogger.debug("bufPos: " + str(self.bufPos))
+        appLogger.debug("carrierId: " + str(self.carrierId))
+        appLogger.debug("palletID: " + str(self.palletID))
+        appLogger.debug("palletPos: " + str(self.palletPos))
+        appLogger.debug("pNo: " + str(self.pNo))
+        appLogger.debug("stopperId: " + str(self.stopperId))
+        appLogger.debug("errorStepNo: " + str(self.errorStepNo))
+        appLogger.debug("stepNo: " + str(self.stepNo))
+        appLogger.debug("maxRecords: " + str(self.maxRecords))
+        appLogger.debug("boxId: " + str(self.boxId))
+        appLogger.debug("boxPos: " + str(self.boxPos))
+        appLogger.debug("mainOPos: " + str(self.mainOPos))
+        appLogger.debug("beltNo: " + str(self.beltNo))
+        appLogger.debug("cNo: " + str(self.cNo))
+        appLogger.debug("boxPNo: " + str(self.boxPNo))
+        appLogger.debug("palletPNo: " + str(self.palletPNo))
+        appLogger.debug("aux1Int: " + str(self.aux1Int))
+        appLogger.debug("aux2Int: " + str(self.aux2Int))
+        appLogger.debug("aux1DInt: " + str(self.aux1DInt))
+        appLogger.debug("aux2DInt: " + str(self.aux2DInt))
+        appLogger.debug("mainPNo: " + str(self.mainPNo))
+        appLogger.debug("serviceParams: " + str(self.serviceParams))

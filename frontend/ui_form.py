@@ -18,13 +18,14 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDoubleSpinBox,
     QGridLayout, QHBoxLayout, QHeaderView, QLabel,
     QMainWindow, QPushButton, QSizePolicy, QSpinBox,
-    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
+    QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout,
+    QWidget)
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(800, 600)
+        MainWindow.resize(800, 630)
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.verticalLayout = QVBoxLayout(self.centralwidget)
@@ -330,6 +331,17 @@ class Ui_MainWindow(object):
 
         self.verticalLayout.addLayout(self.gridViewROS)
 
+        self.label_5 = QLabel(self.centralwidget)
+        self.label_5.setObjectName(u"label_5")
+        self.label_5.setTextFormat(Qt.MarkdownText)
+
+        self.verticalLayout.addWidget(self.label_5)
+
+        self.textEdit_logger = QTextEdit(self.centralwidget)
+        self.textEdit_logger.setObjectName(u"textEdit_logger")
+
+        self.verticalLayout.addWidget(self.textEdit_logger)
+
         MainWindow.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(MainWindow)
@@ -397,5 +409,6 @@ class Ui_MainWindow(object):
         self.pushButton_feature.setText(QCoreApplication.translate("MainWindow", u"Send Command", None))
         self.useCustomNavigationCB.setText(QCoreApplication.translate("MainWindow", u"Use ROS", None))
         self.checkBox_feature.setText(QCoreApplication.translate("MainWindow", u"Enabled", None))
+        self.label_5.setText(QCoreApplication.translate("MainWindow", u"## Logger", None))
     # retranslateUi
 

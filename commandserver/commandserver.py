@@ -7,14 +7,17 @@ Short description: tcp server to receive and send commands to robotino
 
 """
 
-from robotinomanager.robotinomanager import RobotinoManager
+
 import socket
-from threading import Thread, Event
-from conf import IP_ROS, IP_FLEETIAS, TCP_BUFF_SIZE, errLogger, rosLogger, USEROSSYSTEM
 import json
+from threading import Thread, Event
+from PySide6.QtCore import QThread
+
+from conf import IP_ROS, IP_FLEETIAS, TCP_BUFF_SIZE, appLogger, rosLogger
+from robotinomanager.robotinomanager import RobotinoManager
 
 
-class CommandServer(object):
+class CommandServer(QThread):
     """
     Class for sending commands to robotino or ROS
 
@@ -35,6 +38,7 @@ class CommandServer(object):
     """
 
     def __init__(self):
+        super(CommandServer, self).__init__()
         # setup addr
         self.PORT = 13000
         self.PORTROS = 13002
@@ -60,23 +64,19 @@ class CommandServer(object):
         # robotinomanager for delegating messages to be handled
         self.robotinoManager = None
 
-    def __del__(self):
-        self.SERVER.close()
-        self.stopFlag.set()
-
-    def runServer(self):
+    def run(self):
         self.stopFlag.clear()
         self.SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.SERVER.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.SERVER.bind(self.ADDR)
         self.SERVER.listen()
-        print("[COMMANDSERVER] Commandserver started")
-        # Start Tcp server on seperate Thread
-        SERVER_THREADING = Thread(target=self.waitForConnection)
+        appLogger.info("Commandserver started")
+        # Start Tcp server
         try:
-            SERVER_THREADING.start()
+            self.waitForConnection()
         except Exception as e:
-            print(e)
+            appLogger.error(e)
+        self.stopServer()
 
     def waitForConnection(self):
         """
@@ -85,10 +85,10 @@ class CommandServer(object):
         while not self.stopFlag.is_set():
             try:
                 client, addr = self.SERVER.accept()
-                print("[COMMANDSERVER]: " + str(addr) + "connected to socket")
+                appLogger.info(f"{addr} connected to socket")
                 Thread(target=self.commandCommunication, args=[client]).start()
             except Exception as e:
-                print(e)
+                appLogger.error(e)
                 break
 
     def commandCommunication(self, client):
@@ -117,12 +117,12 @@ class CommandServer(object):
                             errMsg = (
                                 "Error while loading carrier: Station didn't respond"
                             )
-                            errLogger.error("[COMMANDSERVER] " + errMsg)
+                            appLogger.error("[COMMANDSERVER] " + errMsg)
                         elif "UnloadBox" in response:
                             errMsg = (
                                 "Error while unloading Carrier: Station didn't respond"
                             )
-                            errLogger.error("[COMMANDSERVER] " + errMsg)
+                            appLogger.error("[COMMANDSERVER] " + errMsg)
                         if self.robotinoManager != None:
                             self.robotinoManager.handleError(errMsg, id)
                         self.endTask(id)
@@ -132,7 +132,7 @@ class CommandServer(object):
                         errMsg = (
                             "Error while undocking from resource: Robotino isn't docked"
                         )
-                        errLogger.error("[COMMANDSERVER] " + errMsg)
+                        appLogger.error("[COMMANDSERVER] " + errMsg)
                         if self.robotinoManager != None:
                             self.robotinoManager.handleError(errMsg, id)
                         self.endTask(id)
@@ -140,7 +140,7 @@ class CommandServer(object):
                     elif "NO_DOCK_STATION" in response:
                         state, id = self._parseCommandInfo(response)
                         errMsg = "Error while docking to resource: Robotino couldn't find markers to dock"
-                        errLogger.error("[COMMANDSERVER] " + errMsg)
+                        appLogger.error("[COMMANDSERVER] " + errMsg)
                         if self.robotinoManager != None:
                             self.robotinoManager.handleError(errMsg, id)
                         self.endTask(id)
@@ -148,7 +148,7 @@ class CommandServer(object):
                     elif "PATH_BLOCKED" in response:
                         state, id = self._parseCommandInfo(response)
                         errMsg = "Error while driving to resource: Path is blocked"
-                        errLogger.error("[COMMANDSERVER] " + errMsg)
+                        appLogger.error("[COMMANDSERVER] " + errMsg)
                         if self.robotinoManager != None:
                             self.robotinoManager.handleError(errMsg, id)
                         self.endTask(id)
@@ -157,10 +157,10 @@ class CommandServer(object):
                         state, id = self._parseCommandInfo(response)
                         if "LoadBox" in response:
                             errMsg = "Error while loading carrier: A carrier is already present on carrier"
-                            errLogger.error("[COMMANDSERVER] " + errMsg)
+                            appLogger.error("[COMMANDSERVER] " + errMsg)
                         elif "UnloadBox" in response:
                             errMsg = "Error while unloading carrier: After finishing operation the box is still present"
-                            errLogger.error("[COMMANDSERVER] " + errMsg)
+                            appLogger.error("[COMMANDSERVER] " + errMsg)
                         if self.robotinoManager != None:
                             self.robotinoManager.handleError(errMsg, id)
                         self.endTask(id)
@@ -169,10 +169,10 @@ class CommandServer(object):
                         state, id = self._parseCommandInfo(response)
                         if "UnloadBox" in response:
                             errMsg = "Error while unloading carrier: Robotino hasn't a box present"
-                            errLogger.error("[COMMANDSERVER] " + errMsg)
+                            appLogger.error("[COMMANDSERVER] " + errMsg)
                         elif "LoadBox" in response:
                             errMsg = "Error while loading carrier: Carrier was not sucessfully loaded"
-                            errLogger.error("[COMMANDSERVER] " + errMsg)
+                            appLogger.error("[COMMANDSERVER] " + errMsg)
                         if self.robotinoManager != None:
                             self.robotinoManager.handleError(errMsg, id)
                         self.endTask(id)
@@ -185,14 +185,6 @@ class CommandServer(object):
                                 target=self.robotinoManager.setCommandInfo,
                                 args=[response],
                             ).start()
-                            id = response.split("robotinoid:")
-                            if id[0] != "":
-                                id = int(id[1][0])
-                            if self.robotinoManager != None:
-                                robotino = self.robotinoManager.getRobotino(id)
-                                Thread(
-                                    target=robotino.setCommandInfo, args=[response]
-                                ).start()
                     # fetch state message
                     elif "RobotInfo" in response:
                         strId = response.split("robotinoid:")
@@ -208,7 +200,7 @@ class CommandServer(object):
                             ).start()
                     # print out response which isnt handled when received
                     else:
-                        errLogger.error(
+                        appLogger.error(
                             "[COMMANDSERVER] Catched unhandled response from robotino: "
                             + str(response)
                         )
@@ -271,7 +263,7 @@ class CommandServer(object):
             # TODO sniff actual command
             self.response = f"PushCommand {resourceId} GoToManual {position}"
         else:
-            errLogger.error(
+            appLogger.error(
                 f'{type} is a invalid target type. Must be either "resource" or "coordinate"'
             )
         self.strToBin()
@@ -402,9 +394,9 @@ class CommandServer(object):
             elif data == ROS_RESP_OFFSET:
                 rosLogger.info(f"Command run successfully on ROS: AddOffset")
             elif data.contains(ROS_RESP_ERR):
-                errLogger.info(msg="[ROS] " + data.split(":")[1])
+                rosLogger.error(msg="[ROS] " + data.split(":")[1])
             else:
-                errLogger.error(f"[ROS] Unkown response: {data}")
+                rosLogger.error(f"[ROS] Unkown response: {data}")
             clientSocket.close()
             break
 
@@ -433,7 +425,7 @@ class CommandServer(object):
                     "workstationID": position,
                 }
             else:
-                errLogger.error(
+                appLogger.error(
                     f"Argument position {position} has wrong format. Must be a int betwenn 1 and 7"
                 )
                 return
@@ -451,12 +443,12 @@ class CommandServer(object):
                     "coordinate": position,
                 }
             else:
-                errLogger.error(
+                appLogger.error(
                     "Argument position {position} has wrong format. Must be a tuple (x,y), where both x and y are int betwenn 0 and 200"
                 )
                 return
         else:
-            errLogger.error(
+            appLogger.error(
                 f'{type} is a invalid target type. Must be either "resource" or "coordinate"'
             )
             return
@@ -486,7 +478,7 @@ class CommandServer(object):
             }
             Thread(target=self.runClientROS, args=[request]).start()
         else:
-            errLogger.error("Wrong argument value: {value}. Must be an bool")
+            appLogger.error("Wrong argument value: {value}. Must be an bool")
 
     def ROSAddOffset(self, name, offset, resourceId=7):
         """
@@ -513,7 +505,7 @@ class CommandServer(object):
             }
             Thread(target=self.runClientROS, args=[request]).start()
         else:
-            errLogger.error(
+            appLogger.error(
                 f"Argument offset: {offset} has wrong format. Must be an float"
             )
 
@@ -529,13 +521,14 @@ class CommandServer(object):
         if self.robotinoManager != None:
             self.robotinoManager.stopCyclicStateUpdate()
             self.robotinoManager.stopAutomatedOperation()
-        self.SERVER.close()
-        print("[COMMANDSERVER] Commandserver stopped")
+        try:
+            self.SERVER.shutdown(socket.SHUT_RDWR)
+        except:
+            pass
+        appLogger.info("Commandserver stopped")
 
 
 if __name__ == "__main__":
     sock = CommandServer()
-    Thread(target=sock.runServer).start()
-    if USEROSSYSTEM == 1:
-        print("Using ROS System")
-        Thread(target=sock.runClientROS).start()
+    sock.start()
+    Thread(target=sock.runClientROS).start()

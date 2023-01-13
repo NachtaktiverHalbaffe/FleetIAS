@@ -10,13 +10,16 @@ import binascii
 import numpy as np
 import socket
 import time
-from threading import Thread
+from PySide6.QtCore import QThread
+from threading import Event
+
 from .servicerequests import ServiceRequests
-from conf import IP_FLEETIAS, TCP_BUFF_SIZE, IP_MES, errLogger
+from conf import IP_FLEETIAS, TCP_BUFF_SIZE, IP_MES, appLogger
 
 
-class MESClient(object):
+class MESClient(QThread):
     def __init__(self):
+        super(MESClient, self).__init__()
         # setup addr
         self.HOST = IP_FLEETIAS
         self.IP_MES = IP_MES
@@ -29,28 +32,34 @@ class MESClient(object):
         self.SERVICE_SOCKET.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         # params regarding robotinos
         self.statesRobotinos = []
-
-    def __del__(self):
-        # Close server if all connections crashed
-        self.CYCLIC_SOCKET.close()
-        self.SERVICE_SOCKET.close()
+        self.stopFlag = Event()
+        self.serviceSocketIsAlive = False
 
     def run(self):
         """
         Runs/starts the MESClient
         """
-        print("[MESCLIENT] MESClient started")
+        appLogger.info("MESClient started")
         self.CYCLIC_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.CYCLIC_SOCKET.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.SERVICE_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.SERVICE_SOCKET.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
+            # Set timeout for connection
+            self.CYCLIC_SOCKET.settimeout(5.0)
+            self.SERVICE_SOCKET.settimeout(5.0)
             self.CYCLIC_SOCKET.connect((self.IP_MES, 2001))
             self.SERVICE_SOCKET.connect((self.IP_MES, 2000))
-            cyclicCommunicationThread = Thread(target=self.cyclicCommunication)
-            cyclicCommunicationThread.start()
+            self.serviceSocketIsAlive = True
+            # Reset tinmeout so socket is in blocking mode
+            self.CYCLIC_SOCKET.settimeout(None)
+            self.SERVICE_SOCKET.settimeout(None)
+            # Start cyclic communication
+            self.stopFlag.clear()
+            self.cyclicCommunication()
         except Exception as e:
-            errLogger.error("[MESCLIENT] " + str(e))
+            appLogger.error("[MESCLIENT] " + str(e))
+        self.stopClient()
 
     def getTransportTasks(self, noOfActiveAGV):
         """
@@ -69,19 +78,16 @@ class MESClient(object):
         try:
             # send request
             self.SERVICE_SOCKET.send(bytes.fromhex(request))
-            while True:
-                # get response and fetch transport tasks
-                msg = self.SERVICE_SOCKET.recv(self.BUFFSIZE)
-                if msg:
-                    responseGenerator = ServiceRequests()
-                    responseGenerator.decodeMessage(binascii.hexlify(msg).decode())
-                    response = responseGenerator.readTransportTasks()
-                    return response
-
+            msg = self.SERVICE_SOCKET.recv(self.BUFFSIZE)
+            if msg:
+                responseGenerator = ServiceRequests()
+                responseGenerator.decodeMessage(binascii.hexlify(msg).decode())
+                response = responseGenerator.readTransportTasks()
+                return response
+        except BrokenPipeError:
+            self.serviceSocketIsAlive = False
         except Exception as e:
-            self.SERVICE_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.SERVICE_SOCKET.connect((self.IP_MES, 2000))
-            errLogger.error("[MESCLIENT] " + str(e))
+            appLogger.error("[MESCLIENT] " + str(e))
 
     def moveBuf(self, robotinoId, resourceId, isLoading):
         """
@@ -103,10 +109,10 @@ class MESClient(object):
                 msg = self.SERVICE_SOCKET.recv(self.BUFFSIZE)
                 if msg:
                     return True
+        except BrokenPipeError:
+            self.serviceSocketIsAlive = False
         except Exception as e:
-            self.SERVICE_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.SERVICE_SOCKET.connect((self.IP_MES, 2000))
-            errLogger.error("[MESCLIENT] " + str(e))
+            appLogger.error("[MESCLIENT] " + str(e))
 
     def delBuf(self, robotinoId):
         """
@@ -126,10 +132,10 @@ class MESClient(object):
                 msg = self.SERVICE_SOCKET.recv(self.BUFFSIZE)
                 if msg:
                     return True
+        except BrokenPipeError:
+            self.serviceSocketIsAlive = False
         except Exception as e:
-            self.SERVICE_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.SERVICE_SOCKET.connect((self.IP_MES, 2000))
-            errLogger.error("[MESCLIENT] " + str(e))
+            appLogger.error("[MESCLIENT] " + str(e))
 
     def setDockingPos(self, dockedAt, robotinoId):
         """
@@ -150,17 +156,18 @@ class MESClient(object):
                 msg = self.SERVICE_SOCKET.recv(self.BUFFSIZE)
                 if msg:
                     return True
+        except BrokenPipeError:
+            self.serviceSocketIsAlive = False
+            appLogger.error(f"Can't send message to IAS-MES: Connection is broken")
         except Exception as e:
-            self.SERVICE_SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.SERVICE_SOCKET.connect((self.IP_MES, 2000))
-            errLogger.error("[MESCLIENT] " + str(e))
+            appLogger.error(str(e))
 
     def cyclicCommunication(self):
         """
         Thread for cyclically sending state of Robotinos to IAS-MES
         """
         lastUpdate = time.time()
-        while True:
+        while not self.stopFlag.is_set():
             if time.time() - lastUpdate >= 1:
                 # send task
                 for i in range(len(self.statesRobotinos)):
@@ -195,11 +202,15 @@ class MESClient(object):
         self.statesRobotinos = states
 
     def stopClient(self):
-        self.SERVICE_SOCKET.close()
-        self.CYCLIC_SOCKET.close()
-        print("[MESCLIENT] Stopped client")
+        self.stopFlag.set()
+        try:
+            self.SERVICE_SOCKET.shutdown(socket.SHUT_RDWR)
+            self.CYCLIC_SOCKET.shutdown(socket.SHUT_RDWR)
+        except:
+            pass
+        appLogger.info("Stopped MESClient")
 
 
 if __name__ == "__main__":
     mesClient = MESClient()
-    Thread(target=mesClient.run).start()
+    mesClient.start()

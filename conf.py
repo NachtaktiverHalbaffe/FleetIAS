@@ -23,51 +23,36 @@ POLL_TIME_TASKS = 3
 """
 Logger
 """
-# ERROR LOGGING
-log_formatter = logging.Formatter("[%(asctime)s ] %(message)s")
-# handler for logging to file
-file_handler = logging.FileHandler("errors.log")
-file_handler.setFormatter(log_formatter)
-file_handler.setLevel(logging.INFO)
-# handler for logging to console
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(log_formatter)
-stream_handler.setLevel(logging.INFO)
-# setup logger itself
-errLogger = logging.getLogger("errors")
-errLogger.setLevel(logging.INFO)
-# add logger handler to logger
-errLogger.handlers = []
-errLogger.addHandler(stream_handler)
-errLogger.addHandler(file_handler)
 
-# ERROR LOGGING
-log_formatter = logging.Formatter("[%(asctime)s ] %(message)s")
+# APP LOGGING
+log_formatter_app = logging.Formatter(
+    "[%(asctime)s][%(module)s] %(levelname)s: %(message)s"
+)
 # handler for logging to file
-file_handler = logging.FileHandler("errors.log")
-file_handler.setFormatter(log_formatter)
-file_handler.setLevel(logging.INFO)
+file_handler_app = logging.FileHandler("logs/fleetias.log")
+file_handler_app.setFormatter(log_formatter_app)
+file_handler_app.setLevel(logging.INFO)
 # handler for logging to console
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(log_formatter)
-stream_handler.setLevel(logging.INFO)
+stream_handler_app = logging.StreamHandler()
+stream_handler_app.setFormatter(log_formatter_app)
+stream_handler_app.setLevel(logging.INFO)
 # setup logger itself
-errLogger = logging.getLogger("errors")
-errLogger.setLevel(logging.INFO)
+appLogger = logging.getLogger(__name__)
+appLogger.setLevel(logging.INFO)
 # add logger handler to logger
-errLogger.handlers = []
-errLogger.addHandler(stream_handler)
-errLogger.addHandler(file_handler)
+appLogger.handlers = []
+appLogger.addHandler(stream_handler_app)
+appLogger.addHandler(file_handler_app)
 
 # ROS LOGGING
 log_formatter_ros = logging.Formatter("[%(asctime)s ] [ROS] %(message)s")
 # handler for logging to file
-file_handler_ros = logging.FileHandler("ros_logs.log")
-file_handler_ros.setFormatter(log_formatter)
+file_handler_ros = logging.FileHandler("logs/ros_logs.log")
+file_handler_ros.setFormatter(log_formatter_ros)
 file_handler_ros.setLevel(logging.INFO)
 # handler for logging to console
 stream_handler_ros = logging.StreamHandler()
-stream_handler_ros.setFormatter(log_formatter)
+stream_handler_ros.setFormatter(log_formatter_ros)
 stream_handler_ros.setLevel(logging.INFO)
 # setup logger itself
 rosLogger = logging.getLogger("ros")
