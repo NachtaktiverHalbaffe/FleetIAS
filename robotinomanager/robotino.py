@@ -6,14 +6,20 @@ Short description: Robotino class
 (C) 2003-2022 IAS, Universitaet Stuttgart
 
 """
-from threading import Thread
-from conf import errLogger
 import threading
 import time
+from threading import Thread
+from PySide6.QtCore import QObject, Signal
+
+from conf import appLogger
 
 
-class Robotino(object):
+class Robotino(QObject):
+    deleteTaskInfoSignal = Signal((int, int), (int, int), int, str)
+    newTaskInfoSignal = Signal((int, int), (int, int), int, str)
+
     def __init__(self, mesClient, commandServer):
+        super(Robotino, self).__init__()
         # params for state
         self.id = 0
         self.autoMode = False
@@ -64,7 +70,7 @@ class Robotino(object):
             self.busy = False
             self.errorL2 = True
         else:
-            errLogger.error("[ROBOTINO] Could'nt fetch state from statemessage")
+            appLogger.error("[ROBOTINO] Could'nt fetch state from statemessage")
         # fetch battery voltage
         strBattery = msg.split("batteryvoltage:")
         strBattery = strBattery[1].split(" ")
@@ -78,7 +84,7 @@ class Robotino(object):
             self.laserWarning = True
             self.errorL2 = True
         else:
-            errLogger.error("[ROBOTINO] Couldnt fetch laserwarning from statemessage")
+            appLogger.error("[ROBOTINO] Couldnt fetch laserwarning from statemessage")
         # fetch laserSaftey
         strLaserSafey = msg.split("lasersafety:")
         strLaserSafey = strLaserSafey[1].split(" ")
@@ -88,7 +94,7 @@ class Robotino(object):
             self.laserSaftey = True
             self.errorL2 = True
         else:
-            errLogger.error("[ROBOTINO] Couldnt fetch lasersaftey from statemessage")
+            appLogger.error("[ROBOTINO] Couldnt fetch lasersaftey from statemessage")
         # fetch boxPresent
         strBox = msg.split("boxpresent:")
         strBox = strBox[1].split(" ")
@@ -97,7 +103,7 @@ class Robotino(object):
         elif "1" in strBox[0]:
             self.boxPresent = True
         else:
-            errLogger.error("[ROBOTINO] Couldnt fetch boxpresent from statemessage")
+            appLogger.error("[ROBOTINO] Couldnt fetch boxpresent from statemessage")
         # fetch position x
         strPosX = msg.split("x:")
         strPosX = strPosX[1].split(" ")
@@ -115,22 +121,92 @@ class Robotino(object):
         """
         Print out all state attributes of Robotino. Just for debugging
         """
-        print("ResourceId: " + str(self.id))
-        print("AutoMode: " + str(self.autoMode))
-        print("ManualMode: " + str(self.manualMode))
-        print("Busy: " + str(self.busy))
-        print("Reset: " + str(self.reset))
-        print("ErrorL0: " + str(self.errorL0))
-        print("ErrorL1: " + str(self.errorL1))
-        print("ErrorL2: " + str(self.errorL2))
-        print("MesMode: " + str(self.mesMode))
-        print("Battery voltage: " + str(self.batteryVoltage))
-        print("Laser Warning: " + str(self.laserWarning))
-        print("Laser Saftey: " + str(self.laserSaftey))
-        print("Box present: " + str(self.boxPresent))
-        print("Position x: " + str(self.positionX))
-        print("Position y: " + str(self.positionY))
-        print("Position phi: " + str(self.positionPhi))
+        appLogger.debug("ResourceId: " + str(self.id))
+        appLogger.debug("AutoMode: " + str(self.autoMode))
+        appLogger.debug("ManualMode: " + str(self.manualMode))
+        appLogger.debug("Busy: " + str(self.busy))
+        appLogger.debug("Reset: " + str(self.reset))
+        appLogger.debug("ErrorL0: " + str(self.errorL0))
+        appLogger.debug("ErrorL1: " + str(self.errorL1))
+        appLogger.debug("ErrorL2: " + str(self.errorL2))
+        appLogger.debug("MesMode: " + str(self.mesMode))
+        appLogger.debug("Battery voltage: " + str(self.batteryVoltage))
+        appLogger.debug("Laser Warning: " + str(self.laserWarning))
+        appLogger.debug("Laser Saftey: " + str(self.laserSaftey))
+        appLogger.debug("Box present: " + str(self.boxPresent))
+        appLogger.debug("Position x: " + str(self.positionX))
+        appLogger.debug("Position y: " + str(self.positionY))
+        appLogger.debug("Position phi: " + str(self.positionPhi))
+
+    def executeTransportTask(self):
+        """
+        Execute an transport task which got assigend from the IAS-MES
+
+        Returns:
+          bool: If transport tasks got successfully executed (True) or not/aborted (False)
+        """
+        self.busy = True
+        ### --------------------  Load carrier at start ------------------------
+        # only do updates in gui if module runs/is configured with gui
+        self._updateTaskFrontend(self, "loading")
+        self.lock.acquire()
+        # drive to start
+        if self.dockedAt != self.task[0]:
+            self.driveTo(self.task[0])
+        if not self._waitForOpEnd("Finished-GotoPosition"):
+            self.lock.release()
+            return False
+        # dock to resource
+        if self.dockedAt != self.task[0]:
+            self.dock(int(self.task[0]))
+        if not self._waitForOpEnd("Finished-DockTo"):
+            self.lock.release()
+            return False
+        # load box
+        self.loadCarrier()
+        if not self._waitForOpEnd("Finished-LoadBox"):
+            self.lock.release()
+            return False
+        # undock
+        self.undock()
+        if not self._waitForOpEnd("Finished-Undock"):
+            self.lock.release()
+            return False
+
+        # -------------------- Unload carrier at target ------------------------
+        # update state of transport task in gui
+        self._updateTaskFrontend("transporting")
+        # drive to target
+        self.driveTo(self.task[1])
+        if not self._waitForOpEnd("Finished-GotoPosition"):
+            self.lock.release()
+            return False
+        # update state of transport task in gui
+        self._updateTaskFrontend("unloading")
+        # dock to resource
+        self.dock(int(self.task[1]))
+        if not self._waitForOpEnd("Finished-DockTo"):
+            self.lock.release()
+            return False
+        # load box
+        self.unloadCarrier()
+        if not self._waitForOpEnd("Finished-UnloadBox"):
+            self.lock.release()
+            return False
+
+        # ---------------------------- Finishing task --------------------------
+
+        # update state of transport task in gui
+        self._updateTaskFrontend("finished")
+        # inform robotino
+        self.commandServer.ack(self.id)
+        # remove task from robotino
+        self.deleteTaskInfoSignal.emit(self.task[0], self.task[1], self.id, "finished")
+        self.task = (0, 0)
+
+        self.lock.release()
+        self.busy = False
+        return True
 
     def loadCarrier(self):
         """
@@ -170,7 +246,7 @@ class Robotino(object):
             Thread(target=self.commandServer.dock, args=[self.id]).start()
         else:
             # implement own way of controlling
-            errLogger.error(
+            appLogger.error(
                 "[ROBOTINO] Old Controls are disabled, but theres no new control for docking implemented. Using old control"
             )
 
@@ -183,7 +259,7 @@ class Robotino(object):
             Thread(target=self.commandServer.undock, args=[self.id]).start()
         else:
             # implement own way of controlling
-            errLogger.error(
+            appLogger.error(
                 "[ROBOTINO] Old Controls are disabled, but theres no new control for undocking implemented. Using old controls"
             )
 
@@ -206,7 +282,7 @@ class Robotino(object):
             ).start()
         else:
             # implement own way of controlling
-            errLogger.error(
+            appLogger.error(
                 "[ROBOTINO] Old Controls are disabled, but theres no new control for undocking implemented. Using old controls"
             )
 
@@ -226,7 +302,7 @@ class Robotino(object):
             ).start()
         else:
             # implement own way of controlling
-            errLogger.error(
+            appLogger.error(
                 "[ROBOTINO] Old Controls are disabled, but theres no new control for undocking implemented. Using old controls"
             )
 
@@ -289,7 +365,6 @@ class Robotino(object):
             id = int(id[1][0])
             state = self.commandInfo.split('"')
             state = state[1]
-
             return id, state
         else:
             return 0, ""
@@ -309,6 +384,35 @@ class Robotino(object):
             id, state = self._parseCommandInfo()
             if id == self.id and state == strFinished:
                 return True
+            else:
+                time.sleep(0.5)
+
+    def _updateTaskFrontend(self, strState):
+        """
+        Updates the state of an transporttaks in the frontend
+
+        Args:
+            strState (str): String of state which should be dislayed as state in frontend
+        """
+        self.deleteTaskInfoSignal.emit(self.task[0], self.task[1], self.id, strState)
+        self.newTaskInfoSignal.emit(self.task[0], self.task[1], self.id, strState)
+
+    def _waitForOpEnd(self, strFinished):
+        """
+         Waits until automatic operation is cancelled or robotino reports operation end
+
+        Args:
+            strFinished (str): message which is received when operation is finished
+
+        Returns:
+            bool: if operation ended successfully (True) or not
+        """
+        while True:
+            id, state = self._parseCommandInfo()
+            if id == self.id and state == strFinished:
+                return True
+            elif self.stopFlagAutoOperation.is_set():
+                return False
             else:
                 time.sleep(0.5)
 

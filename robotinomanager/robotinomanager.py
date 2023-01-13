@@ -7,15 +7,19 @@ Short description: class to manage all robotinos (delegate tasks, delegate state
 
 """
 
-from .robotino import Robotino
-from threading import Thread, Event
-from PyQt5.QtCore import QThread
 import time
-from conf import POLL_TIME_STATUSUPDATES, POLL_TIME_TASKS, errLogger
+from threading import Event, Thread
+from PySide6.QtCore import QThread, Signal
+
+from .robotino import Robotino
+from conf import POLL_TIME_STATUSUPDATES, POLL_TIME_TASKS, appLogger
 
 
-class RobotinoManager(object):
-    def __init__(self, mesClient, commandServer, guiManager=None):
+class RobotinoManager(QThread):
+    errorSignal = Signal(str, int)
+
+    def __init__(self, mesClient, commandServer):
+        super(RobotinoManager, self).__init__()
         # fleet
         self.fleet = []
         # params for automated control
@@ -23,14 +27,48 @@ class RobotinoManager(object):
         self.commandInfo = ""
         self.stopFlagCyclicUpdates = Event()
         self.stopFlagAutoOperation = Event()
+        self.stopFlag = Event()
         self.POLL_TIME_STATEUPDATES = POLL_TIME_STATUSUPDATES
         self.POLL_TIME_TASKS = POLL_TIME_TASKS
         # instances of mesclient and commandserver for executing operations
         self.mesClient = mesClient
         self.commandServer = commandServer
-        self.guiManager = guiManager
-        self.cyclicThread = QThread()
-        self.cyclicThread.started.connect(self.startCyclicStateUpdate)
+        # Internal threading
+        self.isAutoMode = False
+        self.runsStateUpdates = False
+        self.automatedOpThread = Thread(target=self.automatedOperation)
+        self.cyclicStateUpdateThread = Thread(target=self.cyclicStateUpdate)
+
+    def __del__(self):
+        self.stopAutomatedOperation()
+        self.stopCyclicStateUpdate()
+        self.stop()
+
+    def run(self):
+        appLogger.info("Started RobotinoManager")
+        try:
+            while not self.stopFlag.is_set():
+                # --------------------- Automated operation --------------------
+                if self.isAutoMode and not self.automatedOpThread.is_alive():
+                    self.stopFlagAutoOperation.clear()
+                    self.automatedOpThread.start()
+                elif not self.isAutoMode and self.automatedOpThread.is_alive():
+                    self.stopFlagAutoOperation.clear()
+                # --------------------- State updates ------------------------------
+                elif (
+                    self.runsStateUpdates
+                    and not self.cyclicStateUpdateThread.is_alive()
+                ):
+                    self.stopFlagCyclicUpdates.clear()
+                    self.cyclicStateUpdateThread.start()
+                elif (
+                    not self.runsStateUpdates
+                    and not self.cyclicStateUpdateThread.is_alive()
+                ):
+                    self.stopFlagCyclicUpdates.set()
+        except:
+            pass
+        appLogger.info("Stopped RobotinoManager")
 
     def createFleet(self, msg):
         """
@@ -58,15 +96,14 @@ class RobotinoManager(object):
             robotino.id = 7
             robotino.manualMode = True
             self.fleet.append(robotino)
-        self.cyclicThread.start()
-        # Thread(target=self.startCyclicStateUpdate).start()
+        self.startCyclicStateUpdate()
 
     def cyclicStateUpdate(self):
         """
         Cyclically update state of Robotinos. Is started from the class itself and runs as a thread
         """
         lastUpdate = time.time()
-        print("[ROBOTINOMANAGER] Started cyclic state updates")
+        appLogger.info("Started cyclic state updates")
         while not self.stopFlagCyclicUpdates.is_set():
             if time.time() - lastUpdate > self.POLL_TIME_STATEUPDATES:
                 for robotino in self.fleet:
@@ -78,20 +115,23 @@ class RobotinoManager(object):
                 if self.guiManager != None:
                     self.guiManager.setStatesRobotino(self.fleet)
         # reset stopflag after the cyclicStateUpdate got killed
-        print("[ROBOTINOMANAGER] Stopped cyclic state updates")
+        appLogger.info("[ROBOTINOMANAGER] Stopped cyclic state updates")
         self.stopFlagCyclicUpdates.clear()
 
     def automatedOperation(self):
         """
         Operates the Robotino in automated operation where it gets the transport tasks from the IAS-MES and executes them
         """
-        print("[ROBOTINOMANAGER] Started automated operation")
+        appLogger.info("Started automated operation")
         self.stopFlagAutoOperation.clear()
         lastUpdate = time.time()
         while not self.stopFlagAutoOperation.is_set():
             # poll transport task from mes
             if time.time() - lastUpdate > self.POLL_TIME_TASKS:
-                self.transportTasks = self.mesClient.getTransportTasks(len(self.fleet))
+                if self.mesClient.serviceSocketIsAlive:
+                    self.transportTasks = self.mesClient.getTransportTasks(
+                        len(self.fleet)
+                    )
                 if self.transportTasks != None:
                     self.transportTasks = list(self.transportTasks)
                     # assign Tasks
@@ -110,94 +150,21 @@ class RobotinoManager(object):
                                     and robotino.autoMode
                                     and task != (0, 0)
                                 ):
-                                    print(
-                                        "[ROBOTINOMANAGER] Assigned task to robotino "
-                                        + str(robotino.id)
+                                    appLogger.info(
+                                        "Assigned task to robotino " + str(robotino.id)
                                     )
                                     robotino.task = task
                                     Thread(
-                                        target=self.executeTransportTask,
+                                        target=robotino.executeTransportTask,
                                         args=[robotino],
                                     ).start()
                                     break
                     lastUpdate = time.time()
 
+        appLogger.info("Stopped automated operation")
+
         # reset stopflag after the automatedOperation got killed
         self.stopFlagAutoOperation.clear()
-
-    def executeTransportTask(self, robotino):
-        """
-        Execute an transport task which got assigend from the IAS-MES
-
-        Args:
-                robotino (obj): instance of robotino which executes the task
-
-        Returns:
-          bool: If transport tasks got successfully executed (True) or not/aborted (False)
-        """
-        ### --------------------  Load carrier at start ------------------------
-        # only do updates in gui if module runs/is configured with gui
-        taskInfo = (robotino.task[0], robotino.task[1], robotino.id, "loading")
-        self._updateTaskFrontend(robotino, "loading", taskInfo)
-        robotino.lock.acquire()
-        # drive to start
-        if robotino.dockedAt != robotino.task[0]:
-            robotino.driveTo(robotino.task[0])
-        if not self._waitForOpEnd(robotino.id, "Finished-GotoPosition"):
-            robotino.lock.release()
-            return False
-        # dock to resource
-        if robotino.dockedAt != robotino.task[0]:
-            robotino.dock(int(robotino.task[0]))
-        if not self._waitForOpEnd(robotino.id, "Finished-DockTo"):
-            robotino.lock.release()
-            return False
-        # load box
-        robotino.loadCarrier()
-        if not self._waitForOpEnd(robotino.id, "Finished-LoadBox"):
-            robotino.lock.release()
-            return False
-        # undock
-        robotino.undock()
-        if not self._waitForOpEnd(robotino.id, "Finished-Undock"):
-            robotino.lock.release()
-            return False
-
-        # -------------------- Unload carrier at target ------------------------
-        # update state of transport task in gui
-        self._updateTaskFrontend(robotino, "transporting", taskInfo)
-        # drive to target
-        robotino.driveTo(robotino.task[1])
-        if not self._waitForOpEnd(robotino.id, "Finished-GotoPosition"):
-            robotino.lock.release()
-            return False
-        # update state of transport task in gui
-        self._updateTaskFrontend(robotino, "unloading", taskInfo)
-        # dock to resource
-        robotino.dock(int(robotino.task[1]))
-        if not self._waitForOpEnd(robotino.id, "Finished-DockTo"):
-            robotino.lock.release()
-            return False
-        # load box
-        robotino.unloadCarrier()
-        if not self._waitForOpEnd(robotino.id, "Finished-UnloadBox"):
-            robotino.lock.release()
-            return False
-
-        # ---------------------------- Finishing task --------------------------
-
-        # update state of transport task in gui
-        self._updateTaskFrontend(robotino, "finished", taskInfo)
-        # inform robotino
-        # self.commandServer.ack(robotino.id)
-        # remove task from robotino
-        robotino.task = (0, 0)
-        # only do updates in gui if module runs/is configured with gui
-        if self.guiManager != None:
-            self.guiManager.deleteTransportTask(taskInfo)
-
-        robotino.lock.release()
-        return True
 
     def handleError(self, errMsg, robotinoId, isAutoRetrying=True):
         """
@@ -208,12 +175,11 @@ class RobotinoManager(object):
             robotinoId (int): id of robotino which has the error
             isAutoRetring (bool): if operation is automatically retried (only necessary if package is running without gui)
         """
-        if self.guiManager != None:
-            self.guiManager.showErrorDialog(errMsg, robotinoId, self._retryOp)
-        elif isAutoRetrying:
-            self._retryOp(errorMsg=errMsg, robotinoId=robotinoId)
+        self.errorSignal.emit(errMsg, robotinoId)
+        if isAutoRetrying:
+            self.retryOp(errorMsg=errMsg, robotinoId=robotinoId)
 
-    def _retryOp(self, errorMsg, robotinoId, buttonClicked=None):
+    def retryOp(self, errorMsg, robotinoId, buttonClicked=None):
         """
         Retries an failed operation
 
@@ -240,93 +206,65 @@ class RobotinoManager(object):
                 if robotino != None:
                     robotino.undock()
 
-    def _waitForOpEnd(self, robotinoId, strFinished):
-        """
-         Waits until automatic operation is cancelled or robotino reports operation end
-
-        Args:
-            robotinoId (int): id of robotino which waits
-            strFinished (str): message which is received when operation is finished
-
-        Returns:
-            bool: if operation ended successfully (True) or not
-        """
-        while True:
-            id, state = self._parseCommandInfo()
-            if id == robotinoId and state == strFinished:
-                return True
-            elif self.stopFlagAutoOperation.is_set():
-                return False
-            else:
-                time.sleep(0.5)
-
-    def _parseCommandInfo(self):
+    def _getIDfromCommandInfo(self):
         """
         Splits the commandinfo into an id and state
 
         Returns:
-            str: state message of the command info
             int: resourceId of robotino from which the command info comes
         """
         id = self.commandInfo.split("robotinoid:")
         if id[0] != "":
             id = int(id[1][0])
-            state = self.commandInfo.split('"')
-            state = state[1]
-
-            return id, state
+            return id
         else:
-            return 0, ""
-
-    def _updateTaskFrontend(self, robotino, strState, taskInfo):
-        """
-        Updates the state of an transporttaks in the frontend
-
-        Args:
-            robotino (int): instance of robotino which executes the task
-            strState (str): String of state which should be dislayed as state in frontend
-            taskInfo ((int,int), (int,int), int, str): current taskinfo which should be udpated
-        """
-        # only update if module is run with an frontend/gui
-        if self.guiManager != None:
-            # delete task in frontend
-            self.guiManager.deleteTransportTask(taskInfo)
-            taskInfo = (robotino.task[0], robotino.task[1], robotino.id, strState)
-            self.guiManager.addTransportTask(taskInfo)
+            return 0
 
     """
     Setter and getter
     """
 
     def setCommandInfo(self, msg):
+        id = self._getIDfromCommandInfo(msg)
         self.commandInfo = msg
+        for robotino in self.fleet:
+            if robotino.id == id:
+                robotino.setCommandInfo(msg)
+                return
 
     def getRobotino(self, id):
         for robotino in self.fleet:
             if robotino.id == id:
                 return robotino
-        errLogger.error(
+        appLogger.error(
             "[ROBOTINOMANAGER] Couldnt return robotino, because it doesnt exist"
         )
         return
 
     def startAutomatedOperation(self):
-        self.stopFlagAutoOperation.clear()
-        Thread(target=self.automatedOperation).start()
+        self.isAutoMode = True
 
     def stopAutomatedOperation(self):
+        self.isAutoMode = False
         self.stopFlagAutoOperation.set()
 
     def startCyclicStateUpdate(self):
-        self.stopFlagCyclicUpdates.clear()
-        Thread(target=self.cyclicStateUpdate).start()
+        self.runsStateUpdates = True
 
     def stopCyclicStateUpdate(self):
+        self.runsStateUpdates = False
         self.stopFlagCyclicUpdates.set()
 
     def setUseOldControlForWholeFleet(self, value):
         for robotino in self.fleet:
             robotino.useOldControl = value
+
+    def stop(self):
+        self.isAutoMode = False
+        self.runsStateUpdates = False
+        self.stopFlagAutoOperation.set()
+        self.stopFlagCyclicUpdates.set()
+        self.stopFlag.set()
 
 
 if __name__ == "__main__":
