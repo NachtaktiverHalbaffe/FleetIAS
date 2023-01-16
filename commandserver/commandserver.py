@@ -85,7 +85,7 @@ class CommandServer(QThread):
         while not self.stopFlag.is_set():
             try:
                 client, addr = self.SERVER.accept()
-                appLogger.info(f"{addr} connected to socket")
+                appLogger.debug(f"{addr} connected to socket")
                 Thread(target=self.commandCommunication, args=[client]).start()
             except Exception as e:
                 appLogger.error(e)
@@ -105,7 +105,7 @@ class CommandServer(QThread):
                 if request:
                     data = request.decode("utf-8")
                     data = json.loads(data)
-                    print(data)
+
                     response = ""
                     # ----------------------- Push Target -------------------------
                     if data["command"].lower() == "pushtarget":
@@ -271,7 +271,7 @@ class CommandServer(QThread):
                 position[1] >= 0 and position[1] <= 200
             ):
                 rosLogger.info(
-                    f"Send Command to ROS: PushTarget with coordinate {position.toString()}"
+                    f"Send Command to ROS: PushTarget with coordinate {position}"
                 )
                 request = {
                     "command": "PushTarget",
@@ -281,7 +281,7 @@ class CommandServer(QThread):
                 }
             else:
                 appLogger.error(
-                    "Argument position {position} has wrong format. Must be a tuple (x,y), where both x and y are int betwenn 0 and 200"
+                    f"Argument position {position} has wrong format. Must be a tuple (x,y), where both x and y are int betwenn 0 and 200"
                 )
                 return
         else:
@@ -340,7 +340,7 @@ class CommandServer(QThread):
                 "feature": name,
                 "offset": offset,
             }
-            Thread(target=self.runClientROS, args=[request]).start()
+            self.runClientROS(request)
         else:
             appLogger.error(
                 f"Argument offset: {offset} has wrong format. Must be an float"
