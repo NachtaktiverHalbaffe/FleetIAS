@@ -11,9 +11,11 @@ Short description: tcp server to receive and send commands to robotino
 import socket
 import json
 from threading import Thread, Event
+import time
 from PySide6.QtCore import QThread, Signal
 
 from conf import IP_ROS, IP_FLEETIAS, TCP_BUFF_SIZE, appLogger, rosLogger
+from robotinomanager.robotino import Robotino
 from robotinomanager.robotinomanager import RobotinoManager
 
 
@@ -45,7 +47,7 @@ class CommandServer(QThread):
         self.PORT = 13004
         self.PORTROS = 13002
         # self.HOST = IP_FLEETIAS
-        self.HOST = socket.gethostbyname(socket.gethostname())
+        self.HOST = "192.168.178.108"
         self.HOSTROS = IP_ROS
         self.ADDR = (self.HOST, self.PORT)
         self.ADDRROS = (self.HOSTROS, self.PORTROS)
@@ -53,20 +55,15 @@ class CommandServer(QThread):
         # setup socket
         self.SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.SERVER.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.FORMAT = "utf-8"
-        self.buffSize = TCP_BUFF_SIZE
         self.stopFlag = Event()
-        # messages
-        self.response = ""
-        self.encodedMsg = ""
-
-        # messages requested to the ROS pc
-        self.request = {}
 
         # robotinomanager for delegating messages to be handled
         self.robotinoManager = None
 
     def run(self):
+        """
+        Starts the Commandserver in its own thread
+        """
         self.stopFlag.clear()
         self.SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.SERVER.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -83,7 +80,7 @@ class CommandServer(QThread):
 
     def waitForConnection(self):
         """
-        Waits for a connection from a plc. When a plc connects, it starts a new thread for the service specific communication
+        Waits for a connection from a client (mainly evaluationmanager)
         """
         while not self.stopFlag.is_set():
             try:
@@ -94,19 +91,113 @@ class CommandServer(QThread):
                 appLogger.error(e)
                 break
 
-    def strToBin(self):
+    def commandCommunication(self, client):
         """
-        Converts the string to binary which the server can send
+        Receives commands from the client and delegates them either to a Robotino with the proprietary software
+        or a prototype
 
         Args:
-            self.response:
+            client: Client which connected to the socket
         """
-        self.encodedMsg = ""
-        for i in range(len(self.response)):
-            # convert character to hex value
-            self.encodedMsg += str(format(ord(self.response[i]), "x"))
-        # line of end ascii
-        self.encodedMsg += "0a"
+        while not self.stopFlag.is_set():
+            try:
+                request = client.recv(TCP_BUFF_SIZE)
+                if request:
+                    data = request.decode("utf-8")
+                    data = json.loads(data)
+                    print(data)
+                    response = ""
+                    # ----------------------- Push Target -------------------------
+                    if data["command"].lower() == "pushtarget":
+                        #  Drive to a workstation
+                        if data["type"].lower() == "resource":
+                            # Prototype
+                            if data["executioner"].lower() == "prototype":
+                                response = self.goTo(
+                                    position=data["workstationID"],
+                                    resourceId=data["robotinoID"],
+                                    type="resource",
+                                )
+                            # Proprietary software
+                            elif data["executioner"].lower() == "proprietary":
+                                if self.robotinoManager != None:
+                                    self.robotinoManager.getRobotino(
+                                        data["robotinoID"]
+                                    ).driveTo(data["workstationID"])
+
+                                if self._waitForCompletion(int(data["robotinoID"])):
+                                    response = "Success"
+                                else:
+                                    response = "Error"
+                            else:
+                                appLogger.warning(
+                                    f'Couldn\'t execute command PushTarget: Executioner "{data["executioner"]}" is invalid'
+                                )
+                        # Drive to coordinate
+                        elif data["type"].lower() == "coordinate":
+                            # Prototype
+                            if data["executioner"].lower() == "prototype":
+                                response = self.goTo(
+                                    position=data["coordinate"],
+                                    resourceId=data["robotinoID"],
+                                    type="coordinate",
+                                )
+                            # Proprietary
+                            elif data["executioner"].lower() == "proprietary":
+                                self.robotinoManager.getRobotino(
+                                    data["robotinoID"]
+                                ).driveToCor(data["coordinate"])
+
+                                if self._waitForCompletion(int(data["robotinoID"])):
+                                    response = "Success"
+                                else:
+                                    response = "Error"
+                            else:
+                                appLogger.warning(
+                                    f'Couldn\'t execute command PushTarget: Executioner "{data["executioner"]}" is invalid'
+                                )
+                        else:
+                            rosLogger.warning(
+                                f'Couldn\'t execute command PushTarget: Type "{data["type"]}" is invalid'
+                            )
+                    # -------------------- Activate Feature --------------------------
+                    elif data["command"].lower() == "activatefeature":
+                        response = self.activateFeature(
+                            feature=data["feature"],
+                            value=data["value"],
+                            resourceId=data["robotinoID"],
+                        )
+                    # ------------------------- Add offset ----------------------------
+                    elif data["command"].lower() == "addoffset":
+                        response = self.addOffset(
+                            name=data["feature"],
+                            offset=data["offset"],
+                            resourceId=data["robotinoID"],
+                        )
+                    #  ------------------- Set auto mode ----------------------------
+                    elif data["command"].lower() == "setautomode":
+                        if data["enabled"]:
+                            self.robotinoManager.getRobotino(
+                                data["robotinoID"]
+                            ).activateAutoMode()
+                        elif not data["enabled"]:
+                            self.robotinoManager.getRobotino(
+                                data["robotinoID"]
+                            ).activateManualMode()
+                        else:
+                            appLogger.warning(
+                                f'Couldn\'t set Automode of Robotino {data["robotinoID"]}: "Enabled" is not specified'
+                            )
+                    else:
+                        errMsg = f'Couldn\'t process message "{data}": Command wrong formatted or not implemented'
+                        appLogger.warning(errMsg)
+                        response = errMsg
+                    # Send response to client
+                    client.sendall(bytes(response, encoding="utf-8"))
+            except Exception as e:
+                appLogger.warning(
+                    f"Communication with socket {client} failed.\nError message: {e}"
+                )
 
     def runClientROS(self, request={}):
         """
@@ -119,10 +210,10 @@ class CommandServer(QThread):
                         "someSpecificValueForCommand": value,
                     }
         """
-        ROS_RESP_REACHED_TARGET = "Target reached"
-        ROS_RESP_FEATURE = "Feature set"
-        ROS_RESP_OFFSET = "Offset set"
-        ROS_RESP_ERR = "Error"
+        ROS_RESP_REACHED_TARGET = "target reached"
+        ROS_RESP_FEATURE = "feature set"
+        ROS_RESP_OFFSET = "offset set"
+        ROS_RESP_ERR = "error"
 
         # Connect to ROS
         clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -132,18 +223,19 @@ class CommandServer(QThread):
         while not self.stopFlag.is_set():
             # Wait for response
             data = clientSocket.recv(1024).decode("utf-8")
-            if data == ROS_RESP_REACHED_TARGET:
+            #  Logging
+            if ROS_RESP_REACHED_TARGET in data.lower():
                 rosLogger.info(f"Command run successfully on ROS: PushTarget")
-            elif data == ROS_RESP_FEATURE:
+            elif ROS_RESP_FEATURE in data.lower():
                 rosLogger.info(f"Command run successfully on ROS: ActivateFeature")
-            elif data == ROS_RESP_OFFSET:
+            elif ROS_RESP_OFFSET in data.lower():
                 rosLogger.info(f"Command run successfully on ROS: AddOffset")
-            elif data.contains(ROS_RESP_ERR):
+            elif ROS_RESP_ERR in data.lower():
                 rosLogger.error(msg="[ROS] " + data.split(":")[1])
             else:
                 rosLogger.error(f"[ROS] Unkown response: {data}")
             clientSocket.close()
-            break
+            return data
 
     def goTo(self, position, resourceId=7, type="resource"):
         """
@@ -157,7 +249,7 @@ class CommandServer(QThread):
         Returns:
             Nothing
         """
-        if type == "resource":
+        if type.lower() == "resource":
             # Type checking
             if position > 0 and position < 8:
                 rosLogger.info(
@@ -174,7 +266,7 @@ class CommandServer(QThread):
                     f"Argument position {position} has wrong format. Must be a int betwenn 1 and 7"
                 )
                 return
-        elif type == "coordinate":
+        elif type.lower() == "coordinate":
             if (position[0] >= 0 and position[0] <= 200) and (
                 position[1] >= 0 and position[1] <= 200
             ):
@@ -197,9 +289,9 @@ class CommandServer(QThread):
                 f'{type} is a invalid target type. Must be either "resource" or "coordinate"'
             )
             return
-        Thread(target=self.runClientROS, args=[request]).start()
+        return self.runClientROS(request)
 
-    def ActivateFeature(self, feature, value=True, resourceId=7):
+    def activateFeature(self, feature, value=True, resourceId=7):
         """
         Sends a command to ROS where a certain feature gets activated (value: True) or deactivated (value: False)
 
@@ -225,7 +317,7 @@ class CommandServer(QThread):
         else:
             appLogger.error("Wrong argument value: {value}. Must be an bool")
 
-    def AddOffset(self, name, offset, resourceId=7):
+    def addOffset(self, name, offset, resourceId=7):
         """
         Sends a command to ROS to add an Offset to a certain topic
 
@@ -253,6 +345,26 @@ class CommandServer(QThread):
             appLogger.error(
                 f"Argument offset: {offset} has wrong format. Must be an float"
             )
+
+    def _waitForCompletion(self, robotinoId: int):
+        """
+        Waits until the state from a Robotino changes from busy to idle
+
+        Args:
+            robotinoId (int): ResourceID of the Robotino
+
+        Returns:
+            True if Robotino completed or False if Robotino is already idle
+        """
+        robotino = self.robotinoManager.getRobotino(robotinoId)
+
+        if robotino.busy == True:
+            return False
+
+        while True:
+            if robotino.busy == False:
+                return True
+            time.sleep(1)
 
     """
     Setter

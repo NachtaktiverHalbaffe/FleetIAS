@@ -47,6 +47,7 @@ class MainWindow(QMainWindow):
             robotinoServer=self.robotinoServer, mesClient=self.mesClient
         )
         self.robotinoServer.setRobotinoManager(self.robotinoManager)
+        self.commandServer.setRobotinoManager(self.robotinoManager)
         # Commandserver always runs in background
         self.commandServer.start()
 
