@@ -18,7 +18,7 @@ class Robotino(QObject):
     deleteTaskInfoSignal = Signal((int, int), (int, int), int, str)
     newTaskInfoSignal = Signal((int, int), (int, int), int, str)
 
-    def __init__(self, mesClient, commandServer):
+    def __init__(self, mesClient, robotinoServer):
         super(Robotino, self).__init__()
         # params for state
         self.id = 0
@@ -41,7 +41,7 @@ class Robotino(QObject):
         self.target = 0
         # instances of mesclient and commandserver for executing operations
         self.mesClient = mesClient
-        self.commandServer = commandServer
+        self.robotinoServer = robotinoServer
         self.task = (0, 0)
         self.commandInfo = ""
         # settings for robotino
@@ -199,7 +199,7 @@ class Robotino(QObject):
         # update state of transport task in gui
         self._updateTaskFrontend("finished")
         # inform robotino
-        self.commandServer.ack(self.id)
+        self.robotinoServer.ack(self.id)
         # remove task from robotino
         self.deleteTaskInfoSignal.emit(self.task[0], self.task[1], self.id, "finished")
         self.task = (0, 0)
@@ -214,7 +214,7 @@ class Robotino(QObject):
         """
         # Thread(target=self.mesClient.delBuf, args=[
         #     self.id]).start()
-        Thread(target=self.commandServer.loadBox, args=[self.id]).start()
+        Thread(target=self.robotinoServer.loadBox, args=[self.id]).start()
         if self._waitForOpStart("Started-LoadBox"):
             Thread(
                 target=self.mesClient.moveBuf, args=[self.id, self.dockedAt, True]
@@ -224,7 +224,7 @@ class Robotino(QObject):
         """
         Push command to unload carrier to Robotino and send corresponding servicerequest to IAS-MES
         """
-        Thread(target=self.commandServer.unloadBox, args=[self.id]).start()
+        Thread(target=self.robotinoServer.unloadBox, args=[self.id]).start()
         if self._waitForOpStart("Started-UnloadBox"):
             Thread(
                 target=self.mesClient.moveBuf, args=[self.id, self.dockedAt, False]
@@ -243,7 +243,7 @@ class Robotino(QObject):
             target=self.mesClient.setDockingPos, args=[self.dockedAt, self.id]
         ).start()
         if self.useOldControl:
-            Thread(target=self.commandServer.dock, args=[self.id]).start()
+            Thread(target=self.robotinoServer.dock, args=[self.id]).start()
         else:
             # implement own way of controlling
             appLogger.error(
@@ -256,7 +256,7 @@ class Robotino(QObject):
         """
         self.dockedAt = 0
         if self.useOldControl:
-            Thread(target=self.commandServer.undock, args=[self.id]).start()
+            Thread(target=self.robotinoServer.undock, args=[self.id]).start()
         else:
             # implement own way of controlling
             appLogger.error(
@@ -278,7 +278,7 @@ class Robotino(QObject):
         # use commands to let robotino drive with its own steering
         if self.useOldControl:
             Thread(
-                target=self.commandServer.goTo, args=[int(position), self.id]
+                target=self.robotinoServer.goTo, args=[int(position), self.id]
             ).start()
         else:
             # implement own way of controlling
@@ -297,7 +297,7 @@ class Robotino(QObject):
         # use commands to let robotino drive with its own steering
         if self.useOldControl:
             Thread(
-                target=self.commandServer.goTo,
+                target=self.robotinoServer.goTo,
                 args=[int(position), self.id, "coordinate"],
             ).start()
         else:
@@ -314,7 +314,7 @@ class Robotino(QObject):
             position (int): ResourceId of resource which it drives to
         """
         Thread(
-            target=self.commandServer.goToROS,
+            target=self.robotinoServer.goToROS,
             args=[int(position), self.id],
         ).start()
 
@@ -328,7 +328,7 @@ class Robotino(QObject):
         x = int(position[0])
         y = int(position[1])
         Thread(
-            target=self.commandServer.goToROS,
+            target=self.robotinoServer.goToROS,
             args=[(x, y), self.id, "coordinate"],
         ).start()
 
@@ -348,7 +348,7 @@ class Robotino(QObject):
         """
         Push command end the task which also resets error
         """
-        Thread(target=self.commandServer.endTask, args=[self.id]).start()
+        Thread(target=self.robotinoServer.endTask, args=[self.id]).start()
         self.target = 0
         self.task = (0, 0)
 

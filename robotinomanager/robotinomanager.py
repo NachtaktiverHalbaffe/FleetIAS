@@ -18,7 +18,7 @@ from conf import POLL_TIME_STATUSUPDATES, POLL_TIME_TASKS, appLogger
 class RobotinoManager(QThread):
     errorSignal = Signal(str, int)
 
-    def __init__(self, mesClient, commandServer):
+    def __init__(self, mesClient, robotinoServer):
         super(RobotinoManager, self).__init__()
         # fleet
         self.fleet = []
@@ -32,7 +32,7 @@ class RobotinoManager(QThread):
         self.POLL_TIME_TASKS = POLL_TIME_TASKS
         # instances of mesclient and commandserver for executing operations
         self.mesClient = mesClient
-        self.commandServer = commandServer
+        self.robotinoServer = robotinoServer
         # Internal threading
         self.isAutoMode = False
         self.runsStateUpdates = False
@@ -85,14 +85,14 @@ class RobotinoManager(QThread):
         if len(strIds) != 0:
             for id in strIds:
                 robotino = Robotino(
-                    mesClient=self.mesClient, commandServer=self.commandServer
+                    mesClient=self.mesClient, robotinoServer=self.robotinoServer
                 )
                 robotino.id = int(id)
                 robotino.manualMode = True
                 self.fleet.append(robotino)
         else:
             robotino = Robotino(
-                mesClient=self.mesClient, commandServer=self.commandServer
+                mesClient=self.mesClient, robotinoServer=self.robotinoServer
             )
             robotino.id = 7
             robotino.manualMode = True
@@ -109,7 +109,7 @@ class RobotinoManager(QThread):
             if time.time() - lastUpdate > self.POLL_TIME_STATEUPDATES:
                 for robotino in self.fleet:
                     time.sleep(0.002)
-                    self.commandServer.getRobotinoInfo(robotino.id)
+                    self.robotinoServer.getRobotinoInfo(robotino.id)
                 lastUpdate = time.time()
                 self.mesClient.setStatesRobotinos(self.fleet)
                 # only do updates in gui if module runs/is configured with gui
@@ -269,12 +269,12 @@ class RobotinoManager(QThread):
 
 
 if __name__ == "__main__":
-    from commandserver.commandserver import CommandServer
+    from commandserver.robotinoserver import RobotinoServer
     from mescommunicator.mesclient import MESClient
 
     # setup components
-    commandServer = CommandServer()
+    commandServer = RobotinoServer()
     mesClient = MESClient()
-    robotinoManager = RobotinoManager(mesClient=mesClient, commandServer=commandServer)
+    robotinoManager = RobotinoManager(mesClient=mesClient, robotinoServer=commandServer)
     # link component to robotinomanager so commandserver could update tasks
     commandServer.setRobotinoManager(robotinoManager)

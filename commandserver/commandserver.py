@@ -42,7 +42,7 @@ class CommandServer(QThread):
     def __init__(self):
         super(CommandServer, self).__init__()
         # setup addr
-        self.PORT = 13000
+        self.PORT = 13004
         self.PORTROS = 13002
         # self.HOST = IP_FLEETIAS
         self.HOST = socket.gethostbyname(socket.gethostname())
@@ -94,120 +94,6 @@ class CommandServer(QThread):
                 appLogger.error(e)
                 break
 
-    def commandCommunication(self, client):
-        """
-        Thread for the command communication
-
-        Args:
-            client (Client): Socket of the Robotino
-        """
-        while not self.stopFlag.is_set():
-            if len(self.robotinoManager.fleet) == 0 and self.encodedMsg == "":
-                self.getAllRobotinoID()
-            elif self.encodedMsg != "":
-                data = bytes.fromhex(self.encodedMsg)
-                client.send(data)
-                self.encodedMsg = ""
-
-                response = client.recv(self.buffSize)
-                if response:
-                    response = response.decode(self.FORMAT)
-                    # Error handling
-                    # station doesnt respond when loading/unloading carrier
-                    if "NO_RESPONSE_FROM_STATION" in response:
-                        state, id = self._parseCommandInfo(response)
-                        if "LoadBox" in response:
-                            errMsg = (
-                                "Error while loading carrier: Station didn't respond"
-                            )
-                            appLogger.error("[COMMANDSERVER] " + errMsg)
-                        elif "UnloadBox" in response:
-                            errMsg = (
-                                "Error while unloading Carrier: Station didn't respond"
-                            )
-                            appLogger.error("[COMMANDSERVER] " + errMsg)
-                        if self.robotinoManager != None:
-                            self.robotinoManager.handleError(errMsg, id)
-                        self.endTask(id)
-                    # robotino tries to undock but isnt docked
-                    elif "ROBOT_NOT_DOCKED" in response:
-                        state, id = self._parseCommandInfo(response)
-                        errMsg = (
-                            "Error while undocking from resource: Robotino isn't docked"
-                        )
-                        appLogger.error("[COMMANDSERVER] " + errMsg)
-                        if self.robotinoManager != None:
-                            self.robotinoManager.handleError(errMsg, id)
-                        self.endTask(id)
-                    # robotino tries to dock but didnt find markers to dock
-                    elif "NO_DOCK_STATION" in response:
-                        state, id = self._parseCommandInfo(response)
-                        errMsg = "Error while docking to resource: Robotino couldn't find markers to dock"
-                        appLogger.error("[COMMANDSERVER] " + errMsg)
-                        if self.robotinoManager != None:
-                            self.robotinoManager.handleError(errMsg, id)
-                        self.endTask(id)
-                    # robotino tries to drive to resource but path is blocked
-                    elif "PATH_BLOCKED" in response:
-                        state, id = self._parseCommandInfo(response)
-                        errMsg = "Error while driving to resource: Path is blocked"
-                        appLogger.error("[COMMANDSERVER] " + errMsg)
-                        if self.robotinoManager != None:
-                            self.robotinoManager.handleError(errMsg, id)
-                        self.endTask(id)
-                    # robotino tries to load carrier, but a carrier is already present on robotino
-                    elif "BOX_PRESENT" in response and "LoadBox" in response:
-                        state, id = self._parseCommandInfo(response)
-                        if "LoadBox" in response:
-                            errMsg = "Error while loading carrier: A carrier is already present on carrier"
-                            appLogger.error("[COMMANDSERVER] " + errMsg)
-                        elif "UnloadBox" in response:
-                            errMsg = "Error while unloading carrier: After finishing operation the box is still present"
-                            appLogger.error("[COMMANDSERVER] " + errMsg)
-                        if self.robotinoManager != None:
-                            self.robotinoManager.handleError(errMsg, id)
-                        self.endTask(id)
-                    # robotino tries to load carrier, but didnt get a carrier from station
-                    elif "NO_BOX" in response:
-                        state, id = self._parseCommandInfo(response)
-                        if "UnloadBox" in response:
-                            errMsg = "Error while unloading carrier: Robotino hasn't a box present"
-                            appLogger.error("[COMMANDSERVER] " + errMsg)
-                        elif "LoadBox" in response:
-                            errMsg = "Error while loading carrier: Carrier was not sucessfully loaded"
-                            appLogger.error("[COMMANDSERVER] " + errMsg)
-                        if self.robotinoManager != None:
-                            self.robotinoManager.handleError(errMsg, id)
-                        self.endTask(id)
-
-                    # info messages and responses from commands
-                    # inform robotinomanager about commandinfo
-                    if "CommandInfo" in response:
-                        if self.robotinoManager != None:
-                            Thread(
-                                target=self.robotinoManager.setCommandInfo,
-                                args=[response],
-                            ).start()
-                    # fetch state message
-                    elif "RobotInfo" in response:
-                        strId = response.split("robotinoid:")
-                        id = int(strId[1][0])
-                        if self.robotinoManager != None:
-                            robotino = self.robotinoManager.getRobotino(id)
-                            robotino.fetchStateMsg(response)
-                    # create/update fleet
-                    elif "AllRobotinoID" in response:
-                        if self.robotinoManager != None:
-                            Thread(
-                                target=self.robotinoManager.createFleet, args=[response]
-                            ).start()
-                    # print out response which isnt handled when received
-                    else:
-                        appLogger.error(
-                            "[COMMANDSERVER] Catched unhandled response from robotino: "
-                            + str(response)
-                        )
-
     def strToBin(self):
         """
         Converts the string to binary which the server can send
@@ -221,150 +107,6 @@ class CommandServer(QThread):
             self.encodedMsg += str(format(ord(self.response[i]), "x"))
         # line of end ascii
         self.encodedMsg += "0a"
-
-    def loadBox(self, resourceId=7):
-        """
-        Native command to let the robotino load the carrier
-
-        Args:
-            resourceId (int): ResourceId of robotino which should execute the task
-
-        Returns:
-            Nothing
-        """
-        self.response = "PushCommand " + str(resourceId) + " LoadBox 0"
-        self.strToBin()
-
-    def unloadBox(self, resourceId=7):
-        """
-        Native command to let the robotino unload the carrier
-
-        Args:
-            resourceId (int): ResourceId of robotino which should execute the task
-
-        Returns:
-            Nothing
-        """
-        self.response = "PushCommand " + str(resourceId) + " UnloadBox 0"
-        self.strToBin()
-
-    def goTo(self, position, resourceId=7, type="resource"):
-        """
-        Native command to let the robotino drive to an resource
-
-        Args:
-            resourceId (int): ResourceId of Robotino which should execute the task
-            position (either int or (int, int)): Either resourceID of the target resource or coordinate. See argument type
-            type (str, optional): Type of position. Can be either "resource" (position: resourceID) or "coordinate" (position (x,y)-tuple). Defaults to "resource"
-
-        Returns:
-            Nothing
-        """
-        if type == "resource":
-            self.response = f"PushCommand {resourceId} GoToPosition {position}"
-        elif type == "coordinate":
-            # TODO sniff actual command
-            self.response = f"PushCommand {resourceId} GoToManual {position}"
-        else:
-            appLogger.error(
-                f'{type} is a invalid target type. Must be either "resource" or "coordinate"'
-            )
-        self.strToBin()
-
-    def dock(self, resourceId=7):
-        """
-        Command to let the robotino dock to a resource
-
-        Args:
-            resourceId (int): ResourceId of robotino which should execute the task
-
-        Returns:
-            Nothing
-        """
-        self.response = "PushCommand " + str(resourceId) + " DockTo 1"
-        self.strToBin()
-
-    def undock(self, resourceId=7):
-        """
-        Command to let the robotino undock from an resource
-
-        Args:
-            resourceId (int): ResourceId of robotino which should execute the task
-
-        Return:
-            Nothing
-        """
-        self.response = "PushCommand " + str(resourceId) + " Undock"
-        self.strToBin()
-
-    def getRobotinoInfo(self, resourceId=7):
-        """
-        Command to get the state from an robotino
-
-        Args:
-            resourceId (int): ResourceId of robotino which should execute the task
-
-        Returns:
-            Nothing
-        """
-        self.response = "GetRobotInfo " + str(resourceId)
-        self.strToBin()
-
-    def getAllRobotinoID(self):
-        """
-        Command to get the resourceIds of all active robotinos
-        """
-        # self.response = "PushCommand GetAllRobotinoID"
-        self.response = "GetAllRobotinoID"
-        self.strToBin()
-
-    def endTask(self, resourceId=7):
-        """
-        Command to get the resourceIds of all active robotinos
-
-        Args:
-            resourceId (int): ResourceId of robotino which should execute the task
-
-        Returns:
-            Nothing
-        """
-        # self.response = "PushCommand GetAllRobotinoID"
-        self.response = "EndTask " + str(resourceId)
-        self.strToBin()
-
-    def ack(self, resourceId=7):
-        """
-        Command to tell robotino that it has ended it transport task
-
-        Args:
-            resourceId (int): ResourceId of robotino which should execute the task
-
-        Returns:
-            Nothing
-        """
-        self.response = "PushCommand " + str(resourceId) + " Thank You"
-        self.strToBin()
-
-    def _parseCommandInfo(self, msg):
-        """
-        Splits the commandinfo into an id and state
-
-        Args:
-            msg (str): Message from which the state and id is extracted
-
-        Returns:
-            state (string): State message of the command info
-            id (int): ResourceId of Robotino from which the command info comes
-        """
-        id = msg.split("robotinoid:")
-        if id[0] != "":
-            id = int(id[1][0])
-            state = msg.split('"')
-            state = state[1]
-
-            return id, state
-        else:
-            return 0, ""
 
     def runClientROS(self, request={}):
         """
@@ -403,7 +145,7 @@ class CommandServer(QThread):
             clientSocket.close()
             break
 
-    def goToROS(self, position, resourceId=7, type="resource"):
+    def goTo(self, position, resourceId=7, type="resource"):
         """
         Sends a command to ROS where the Robotino should drive to an resource
 
@@ -457,7 +199,7 @@ class CommandServer(QThread):
             return
         Thread(target=self.runClientROS, args=[request]).start()
 
-    def ROSActivateFeature(self, feature, value=True, resourceId=7):
+    def ActivateFeature(self, feature, value=True, resourceId=7):
         """
         Sends a command to ROS where a certain feature gets activated (value: True) or deactivated (value: False)
 
@@ -483,7 +225,7 @@ class CommandServer(QThread):
         else:
             appLogger.error("Wrong argument value: {value}. Must be an bool")
 
-    def ROSAddOffset(self, name, offset, resourceId=7):
+    def AddOffset(self, name, offset, resourceId=7):
         """
         Sends a command to ROS to add an Offset to a certain topic
 
