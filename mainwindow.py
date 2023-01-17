@@ -44,7 +44,7 @@ class MainWindow(QMainWindow):
         self.commandServer = CommandServer()
         self.mesClient = MESClient()
         self.robotinoManager = RobotinoManager(
-            robotinoServer=self.robotinoServer, mesClient=self.mesClient
+            robotinoServer=self.robotinoServer, mesClient=self.mesClient, guiManager=self
         )
         self.robotinoServer.setRobotinoManager(self.robotinoManager)
         self.commandServer.setRobotinoManager(self.robotinoManager)
@@ -501,5 +501,5 @@ if __name__ == "__main__":
     """Runs GUI"""
     app = QApplication(sys.argv)
     widget = MainWindow()
-    widget.show()
+    widget.showMaximized()
     sys.exit(app.exec())

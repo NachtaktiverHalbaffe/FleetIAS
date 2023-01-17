@@ -46,8 +46,7 @@ class CommandServer(QThread):
         # setup addr
         self.PORT = 13004
         self.PORTROS = 13002
-        # self.HOST = IP_FLEETIAS
-        self.HOST = "192.168.178.108"
+        self.HOST = IP_FLEETIAS
         self.HOSTROS = IP_ROS
         self.ADDR = (self.HOST, self.PORT)
         self.ADDRROS = (self.HOSTROS, self.PORTROS)

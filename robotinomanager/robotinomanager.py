@@ -18,7 +18,7 @@ from conf import POLL_TIME_STATUSUPDATES, POLL_TIME_TASKS, appLogger
 class RobotinoManager(QThread):
     errorSignal = Signal(str, int)
 
-    def __init__(self, mesClient, robotinoServer):
+    def __init__(self, mesClient, robotinoServer,guiManager=None):
         super(RobotinoManager, self).__init__()
         # fleet
         self.fleet = []
@@ -33,6 +33,7 @@ class RobotinoManager(QThread):
         # instances of mesclient and commandserver for executing operations
         self.mesClient = mesClient
         self.robotinoServer = robotinoServer
+        self.guiManager = guiManager
         # Internal threading
         self.isAutoMode = False
         self.runsStateUpdates = False
@@ -167,7 +168,7 @@ class RobotinoManager(QThread):
         # reset stopflag after the automatedOperation got killed
         self.stopFlagAutoOperation.clear()
 
-    def handleError(self, errMsg, robotinoId, isAutoRetrying=True):
+    def handleError(self, errMsg, robotinoId, isAutoRetrying=False):
         """
         Handles error when robotino returns an error during operation
 
@@ -189,23 +190,22 @@ class RobotinoManager(QThread):
             robotinoId (int): id of robotino with the error
             buttonClicked (bool): button which was clicked in the errordialog (optional)
         """
-        if buttonClicked.text() == "Retry" or buttonClicked == None:
-            robotino = self.robotinoManager.getRobotino(robotinoId)
-            if "loading" in errorMsg:
-                if robotino != None:
-                    robotino.loadCarrier()
-            elif "unloading" in errorMsg:
-                if robotino != None:
-                    robotino.unloadCarrier()
-            elif "driving" in errorMsg:
-                if robotino != None:
-                    robotino.driveTo(robotino.target)
-            elif "docking" in errorMsg:
-                if robotino != None:
-                    robotino.dock(robotino.target)
-            elif "undocking" in errorMsg:
-                if robotino != None:
-                    robotino.undock()
+        robotino = self.robotinoManager.getRobotino(robotinoId)
+        if "loading" in errorMsg:
+            if robotino != None:
+                robotino.loadCarrier()
+        elif "unloading" in errorMsg:
+            if robotino != None:
+                robotino.unloadCarrier()
+        elif "driving" in errorMsg:
+            if robotino != None:
+                robotino.driveTo(robotino.target)
+        elif "docking" in errorMsg:
+            if robotino != None:
+                robotino.dock(robotino.target)
+        elif "undocking" in errorMsg:
+            if robotino != None:
+                robotino.undock()
 
     def _getIDfromCommandInfo(self):
         """
@@ -266,6 +266,9 @@ class RobotinoManager(QThread):
         self.stopFlagAutoOperation.set()
         self.stopFlagCyclicUpdates.set()
         self.stopFlag.set()
+        self.fleet=[]
+        if self.guiManager != None:
+            self.guiManager.setStatesRobotino(self.fleet)
 
 
 if __name__ == "__main__":

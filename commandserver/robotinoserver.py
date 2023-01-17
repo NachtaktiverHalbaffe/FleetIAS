@@ -44,8 +44,7 @@ class RobotinoServer(QThread):
         # setup addr
         self.PORT = 13000
         self.PORTROS = 13002
-        # self.HOST = IP_FLEETIAS
-        self.HOST = socket.gethostbyname(socket.gethostname())
+        self.HOST = IP_FLEETIAS
         self.HOSTROS = IP_ROS
         self.ADDR = (self.HOST, self.PORT)
         self.ADDRROS = (self.HOSTROS, self.PORTROS)
