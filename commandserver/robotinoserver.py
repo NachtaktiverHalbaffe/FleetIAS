@@ -10,7 +10,7 @@ Short description: tcp server to receive and send commands to robotino
 
 import socket
 import json
-from threading import Thread, Event
+from threading import Thread, Event, Lock
 from PySide6.QtCore import QThread, Signal
 
 from conf import IP_ROS, IP_FLEETIAS, TCP_BUFF_SIZE, appLogger, rosLogger
@@ -55,6 +55,7 @@ class RobotinoServer(QThread):
         self.FORMAT = "utf-8"
         self.buffSize = TCP_BUFF_SIZE
         self.stopFlag = Event()
+        self.lock = Lock()
         # messages
         self.response = ""
         self.encodedMsg = ""
@@ -107,8 +108,9 @@ class RobotinoServer(QThread):
                 data = bytes.fromhex(self.encodedMsg)
                 client.send(data)
                 self.encodedMsg = ""
-
+                
                 response = client.recv(self.buffSize)
+            
                 if response:
                     response = response.decode(self.FORMAT)
                     # Error handling
@@ -183,10 +185,7 @@ class RobotinoServer(QThread):
                     # inform robotinomanager about commandinfo
                     if "CommandInfo" in response:
                         if self.robotinoManager != None:
-                            Thread(
-                                target=self.robotinoManager.setCommandInfo,
-                                args=[response],
-                            ).start()
+                            self.robotinoManager.setCommandInfo(response)
                     # fetch state message
                     elif "RobotInfo" in response:
                         strId = response.split("robotinoid:")
@@ -197,9 +196,7 @@ class RobotinoServer(QThread):
                     # create/update fleet
                     elif "AllRobotinoID" in response:
                         if self.robotinoManager != None:
-                            Thread(
-                                target=self.robotinoManager.createFleet, args=[response]
-                            ).start()
+                            self.robotinoManager.createFleet(response)
                     # print out response which isnt handled when received
                     else:
                         appLogger.error(

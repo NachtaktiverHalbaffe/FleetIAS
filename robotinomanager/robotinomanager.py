@@ -8,7 +8,7 @@ Short description: class to manage all robotinos (delegate tasks, delegate state
 """
 
 import time
-from threading import Event, Thread
+from threading import Event, Thread, Lock
 from PySide6.QtCore import QThread, Signal
 
 from .robotino import Robotino
@@ -39,6 +39,7 @@ class RobotinoManager(QThread):
         self.runsStateUpdates = False
         self.automatedOpThread = Thread(target=self.automatedOperation)
         self.cyclicStateUpdateThread = Thread(target=self.cyclicStateUpdate)
+        self.robotinoServerLock= Lock()
 
     def __del__(self):
         self.stopAutomatedOperation()
@@ -90,6 +91,8 @@ class RobotinoManager(QThread):
                 )
                 robotino.id = int(id)
                 robotino.manualMode = True
+                robotino.deleteTaskInfoSignal.connect(self.guiManager.deleteTransportTask)
+                robotino.newTaskInfoSignal.connect(self.guiManager.addTransportTask)
                 self.fleet.append(robotino)
         else:
             robotino = Robotino(
@@ -104,18 +107,18 @@ class RobotinoManager(QThread):
         """
         Cyclically update state of Robotinos. Is started from the class itself and runs as a thread
         """
-        lastUpdate = time.time()
         appLogger.info("Started cyclic state updates")
         while not self.stopFlagCyclicUpdates.is_set():
-            if time.time() - lastUpdate > self.POLL_TIME_STATEUPDATES:
-                for robotino in self.fleet:
-                    time.sleep(0.002)
-                    self.robotinoServer.getRobotinoInfo(robotino.id)
-                lastUpdate = time.time()
-                self.mesClient.setStatesRobotinos(self.fleet)
-                # only do updates in gui if module runs/is configured with gui
-                if self.guiManager != None:
-                    self.guiManager.setStatesRobotino(self.fleet)
+            for robotino in self.fleet:
+                self.robotinoServer.lock.acquire()
+                self.robotinoServer.getRobotinoInfo(robotino.id)
+                self.robotinoServer.lock.release()
+            self.mesClient.setStatesRobotinos(self.fleet)
+            # only do updates in gui if module runs/is configured with gui
+            if self.guiManager != None:
+                self.guiManager.setStatesRobotino(self.fleet)
+            
+            time.sleep(self.POLL_TIME_STATEUPDATES)
         # reset stopflag after the cyclicStateUpdate got killed
         appLogger.info("[ROBOTINOMANAGER] Stopped cyclic state updates")
         self.stopFlagCyclicUpdates.clear()
@@ -129,39 +132,41 @@ class RobotinoManager(QThread):
         lastUpdate = time.time()
         while not self.stopFlagAutoOperation.is_set():
             # poll transport task from mes
-            if time.time() - lastUpdate > self.POLL_TIME_TASKS:
-                if self.mesClient.serviceSocketIsAlive:
-                    self.transportTasks = self.mesClient.getTransportTasks(
-                        len(self.fleet)
-                    )
-                if self.transportTasks != None:
-                    self.transportTasks = list(self.transportTasks)
-                    # assign Tasks
-                    for task in self.transportTasks:
-                        # check if task is already assigned
-                        isAlreadyAssigned = False
+            print(self.transportTasks)
+
+            if self.mesClient.serviceSocketIsAlive:
+                self.transportTasks = self.mesClient.getTransportTasks(
+                    len(self.fleet)
+                )
+            if self.transportTasks != None:
+                self.transportTasks = list(self.transportTasks)
+                # assign Tasks
+                for task in self.transportTasks:
+                    # check if task is already assigned
+                    isAlreadyAssigned = False
+                    for robotino in self.fleet:
+                        if robotino.task == task:
+                            isAlreadyAssigned = True
+                            break
+                    # assign task if it isnt already assigned
+                    if not isAlreadyAssigned:
+                        appLogger.debug(f"Got transport task {task} from MES. Assigning to Robotino")
                         for robotino in self.fleet:
-                            if robotino.task == task:
-                                isAlreadyAssigned = True
+                            if (
+                                robotino.task == (0, 0)
+                                and robotino.autoMode
+                                and task != (0, 0)
+                            ):
+                                appLogger.info(
+                                    "Assigned task to robotino " + str(robotino.id)
+                                )
+                                robotino.task = task
+                                Thread(
+                                    target=robotino.executeTransportTask,                             
+                                ).start()
                                 break
-                        # assign task if it isnt already assigned
-                        if not isAlreadyAssigned:
-                            for robotino in self.fleet:
-                                if (
-                                    robotino.task == (0, 0)
-                                    and robotino.autoMode
-                                    and task != (0, 0)
-                                ):
-                                    appLogger.info(
-                                        "Assigned task to robotino " + str(robotino.id)
-                                    )
-                                    robotino.task = task
-                                    Thread(
-                                        target=robotino.executeTransportTask,
-                                        args=[robotino],
-                                    ).start()
-                                    break
-                    lastUpdate = time.time()
+            
+            time.sleep(self.POLL_TIME_TASKS)
 
         appLogger.info("Stopped automated operation")
 
@@ -190,7 +195,7 @@ class RobotinoManager(QThread):
             robotinoId (int): id of robotino with the error
             buttonClicked (bool): button which was clicked in the errordialog (optional)
         """
-        robotino = self.robotinoManager.getRobotino(robotinoId)
+        robotino = self.getRobotino(robotinoId)
         if "loading" in errorMsg:
             if robotino != None:
                 robotino.loadCarrier()
@@ -226,12 +231,10 @@ class RobotinoManager(QThread):
     """
 
     def setCommandInfo(self, msg):
-        id = self._getIDfromCommandInfo(msg)
         self.commandInfo = msg
-        for robotino in self.fleet:
-            if robotino.id == id:
-                robotino.setCommandInfo(msg)
-                return
+        id = self._getIDfromCommandInfo()
+        print(f"RobotinoManager: Id: {id}, Message: {msg}")
+        self.getRobotino(int(id)).setCommandInfo(msg)
 
     def getRobotino(self, id):
         for robotino in self.fleet:
@@ -240,7 +243,7 @@ class RobotinoManager(QThread):
         appLogger.error(
             "[ROBOTINOMANAGER] Couldnt return robotino, because it doesnt exist"
         )
-        return
+        return None
 
     def startAutomatedOperation(self):
         self.isAutoMode = True

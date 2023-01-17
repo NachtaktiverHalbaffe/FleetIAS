@@ -10,13 +10,13 @@ import threading
 import time
 from threading import Thread
 from PySide6.QtCore import QObject, Signal
-
 from conf import appLogger
 
 
+
 class Robotino(QObject):
-    deleteTaskInfoSignal = Signal((int, int), (int, int), int, str)
-    newTaskInfoSignal = Signal((int, int), (int, int), int, str)
+    deleteTaskInfoSignal = Signal(int, int, int, str)
+    newTaskInfoSignal = Signal(int, int, int, str)
 
     def __init__(self, mesClient, robotinoServer):
         super(Robotino, self).__init__()
@@ -48,6 +48,7 @@ class Robotino(QObject):
         self.useOldControl = True
         # For task execution sychronization
         self.lock = threading.Lock()
+        self.stopFlagAutoOperation = threading.Event()
 
     def fetchStateMsg(self, msg):
         """
@@ -141,94 +142,96 @@ class Robotino(QObject):
     def executeTransportTask(self):
         """
         Execute an transport task which got assigend from the IAS-MES
-
-        Returns:
-          bool: If transport tasks got successfully executed (True) or not/aborted (False)
         """
+        SLEEP_TIME=2
         self.busy = True
+        self.stopFlagAutoOperation.clear()
         ### --------------------  Load carrier at start ------------------------
         # only do updates in gui if module runs/is configured with gui
-        self._updateTaskFrontend(self, "loading")
-        self.lock.acquire()
+        self._updateTaskFrontend("loading")
+        time.sleep(SLEEP_TIME)
         # drive to start
-        if self.dockedAt != self.task[0]:
+        if self.dockedAt != int(self.task[0]):
             self.driveTo(self.task[0])
-        if not self._waitForOpEnd("Finished-GotoPosition"):
-            self.lock.release()
-            return False
+            appLogger.debug(f"Robotino {self.id} finished driving to resource {self.task[0]}")
+        time.sleep(SLEEP_TIME)
         # dock to resource
-        if self.dockedAt != self.task[0]:
+        if self.dockedAt != int(self.task[0]):
             self.dock(int(self.task[0]))
-        if not self._waitForOpEnd("Finished-DockTo"):
-            self.lock.release()
-            return False
+            appLogger.debug(f"Robotino {self.id} finished docking at resource {self.task[0]}")
         # load box
+        time.sleep(SLEEP_TIME)
         self.loadCarrier()
-        if not self._waitForOpEnd("Finished-LoadBox"):
-            self.lock.release()
-            return False
+        appLogger.debug(f"Robotino {self.id} finished loading carrier from resource {self.task[0]}")
         # undock
+        time.sleep(SLEEP_TIME)
         self.undock()
-        if not self._waitForOpEnd("Finished-Undock"):
-            self.lock.release()
-            return False
+        appLogger.debug(f"Robotino {self.id} finished undocking fron resource {self.task[0]}")
 
         # -------------------- Unload carrier at target ------------------------
         # update state of transport task in gui
         self._updateTaskFrontend("transporting")
         # drive to target
+        time.sleep(SLEEP_TIME)
         self.driveTo(self.task[1])
-        if not self._waitForOpEnd("Finished-GotoPosition"):
-            self.lock.release()
-            return False
+        appLogger.debug(f"Robotino {self.id} finished driving to resource {self.task[1]}")
         # update state of transport task in gui
         self._updateTaskFrontend("unloading")
         # dock to resource
+        time.sleep(SLEEP_TIME)
         self.dock(int(self.task[1]))
-        if not self._waitForOpEnd("Finished-DockTo"):
-            self.lock.release()
-            return False
+        appLogger.debug(f"Robotino {self.id} finished docking at resource {self.task[1]}")
         # load box
+        time.sleep(SLEEP_TIME)
         self.unloadCarrier()
-        if not self._waitForOpEnd("Finished-UnloadBox"):
-            self.lock.release()
-            return False
-
+        appLogger.debug(f"Robotino {self.id} finished unloading carrier at resource {self.task[1]}")
         # ---------------------------- Finishing task --------------------------
 
         # update state of transport task in gui
         self._updateTaskFrontend("finished")
         # inform robotino
-        self.robotinoServer.ack(self.id)
+        # self.robotinoServer.ack(self.id)
         # remove task from robotino
+        appLogger.debug(f"Robotino {self.id} finished transport task {self.task}")
+       
         self.deleteTaskInfoSignal.emit(self.task[0], self.task[1], self.id, "finished")
         self.task = (0, 0)
-
-        self.lock.release()
         self.busy = False
-        return True
 
     def loadCarrier(self):
         """
         Push command to load carrier to Robotino and send corresponding servicerequest to IAS-MES
         """
-        # Thread(target=self.mesClient.delBuf, args=[
-        #     self.id]).start()
-        Thread(target=self.robotinoServer.loadBox, args=[self.id]).start()
-        if self._waitForOpStart("Started-LoadBox"):
-            Thread(
-                target=self.mesClient.moveBuf, args=[self.id, self.dockedAt, True]
-            ).start()
+        self.lock.acquire()
+
+        self.robotinoServer.lock.acquire()
+        self.robotinoServer.loadBox(self.id)
+        self.robotinoServer.lock.release()
+
+        # Update state in IAS-MES
+        if self._waitForOpResponse("Started-LoadBox") and self.mesClient.serviceSocketIsAlive:
+            self.mesClient.moveBuf(self.id, self.dockedAt, True)
+        
+        self._waitForOpResponse("Finished-LoadBox")
+        
+        self.lock.release()
 
     def unloadCarrier(self):
         """
         Push command to unload carrier to Robotino and send corresponding servicerequest to IAS-MES
         """
-        Thread(target=self.robotinoServer.unloadBox, args=[self.id]).start()
-        if self._waitForOpStart("Started-UnloadBox"):
-            Thread(
-                target=self.mesClient.moveBuf, args=[self.id, self.dockedAt, False]
-            ).start()
+        self.lock.acquire()
+
+        self.robotinoServer.lock.acquire()
+        self.robotinoServer.unloadBox(self.id)
+        self.robotinoServer.lock.release()
+
+        # Update state in IAS-MES
+        if self._waitForOpResponse("Started-UnloadBox")  and self.mesClient.serviceSocketIsAlive:
+                self.mesClient.moveBuf(self.id, self.dockedAt, False)
+        self._waitForOpResponse("Finished-UnloadBox")
+        
+        self.lock.release()
 
     def dock(self, position):
         """
@@ -239,33 +242,35 @@ class Robotino(QObject):
         """
         self.dockedAt = int(position)
         self.target = int(position)
-        Thread(
-            target=self.mesClient.setDockingPos, args=[self.dockedAt, self.id]
-        ).start()
-        if self.useOldControl:
-            Thread(target=self.robotinoServer.dock, args=[self.id]).start()
-        else:
-            # implement own way of controlling
-            appLogger.error(
-                "[ROBOTINO] Old Controls are disabled, but theres no new control for docking implemented. Using old control"
-            )
+
+        self.lock.acquire()
+
+        self.robotinoServer.lock.acquire()
+        self.robotinoServer.dock(self.id)
+        self.robotinoServer.lock.release()
+
+        # Update state in IAS-MES
+        if self._waitForOpResponse("Finished-DockTo") and self.mesClient.serviceSocketIsAlive:
+            self.mesClient.setDockingPos(self.dockedAt, self.id)
+
+        self.lock.release()
 
     def undock(self):
         """
         Push command to undock from resource to Robotino and send corresponding servicerequest to IAS-MES
         """
         self.dockedAt = 0
-        if self.useOldControl:
-            Thread(target=self.robotinoServer.undock, args=[self.id]).start()
-        else:
-            # implement own way of controlling
-            appLogger.error(
-                "[ROBOTINO] Old Controls are disabled, but theres no new control for undocking implemented. Using old controls"
-            )
+        self.lock.acquire()
 
-        Thread(
-            target=self.mesClient.setDockingPos, args=[self.dockedAt, self.id]
-        ).start()
+        self.robotinoServer.lock.acquire()
+        self.robotinoServer.undock(self.id)
+        self.robotinoServer.lock.release()
+
+        # Update state in IAS-MES
+        if self._waitForOpResponse("Finished-Undock") and self.mesClient.serviceSocketIsAlive:
+            self.mesClient.setDockingPos(self.dockedAt, self.id)
+
+        self.lock.release()
 
     def driveTo(self, position):
         """
@@ -275,16 +280,18 @@ class Robotino(QObject):
             position (int): ResourceId of resource which it drives to
         """
         self.target = int(position)
-        # use commands to let robotino drive with its own steering
-        if self.useOldControl:
-            Thread(
-                target=self.robotinoServer.goTo, args=[int(position), self.id]
-            ).start()
-        else:
-            # implement own way of controlling
-            appLogger.error(
-                "[ROBOTINO] Old Controls are disabled, but theres no new control for undocking implemented. Using old controls"
-            )
+        
+        self.lock.acquire()
+
+        self.robotinoServer.lock.acquire()
+        self.robotinoServer.goTo(int(position), self.id)
+        self.robotinoServer.lock.release()
+
+        self._waitForOpResponse("Finished-GotoPosition")
+
+        self.lock.release()
+   
+
 
     def driveToCor(self, position):
         """
@@ -293,18 +300,14 @@ class Robotino(QObject):
         Args:
              position ((int, int)): Coordinate where the Robotio should drive to. Is a (x,y)-tuple
         """
-        self.target = int(position)
-        # use commands to let robotino drive with its own steering
-        if self.useOldControl:
-            Thread(
-                target=self.robotinoServer.goTo,
-                args=[int(position), self.id, "coordinate"],
-            ).start()
-        else:
-            # implement own way of controlling
-            appLogger.error(
-                "[ROBOTINO] Old Controls are disabled, but theres no new control for undocking implemented. Using old controls"
-            )
+        self.target = int(position)  
+        self.lock.acquire()
+
+        self.robotinoServer.lock.acquire()
+        self.robotinoServer.goTo(int(position), self.id, "coordinate")
+        self.robotinoServer.lock.release()
+
+        self.lock.release()
 
     def driveToROS(self, position):
         """
@@ -313,10 +316,6 @@ class Robotino(QObject):
         Args:
             position (int): ResourceId of resource which it drives to
         """
-        Thread(
-            target=self.robotinoServer.goToROS,
-            args=[int(position), self.id],
-        ).start()
 
     def driveToCorROS(self, position):
         """
@@ -327,10 +326,6 @@ class Robotino(QObject):
         """
         x = int(position[0])
         y = int(position[1])
-        Thread(
-            target=self.robotinoServer.goToROS,
-            args=[(x, y), self.id, "coordinate"],
-        ).start()
 
     def setDockingPos(self, position):
         """
@@ -340,15 +335,17 @@ class Robotino(QObject):
             position (int): ResourceId of resource which it is docked
         """
         self.target = int(position)
-        Thread(
-            target=self.mesClient.setDockingPos, args=[int(position), self.id]
-        ).start()
+        self.dockedAt = int(position)
+        if self.mesClient.serviceSocketIsAlive:
+            self.mesClient.setDockingPos(int(position), self.id)
 
     def endTask(self):
         """
         Push command end the task which also resets error
         """
-        Thread(target=self.robotinoServer.endTask, args=[self.id]).start()
+        self.robotinoServer.lock.acquire()
+        self.robotinoServer.endTask(self.id)
+        self.robotinoServer.lock.release()
         self.target = 0
         self.task = (0, 0)
 
@@ -369,7 +366,17 @@ class Robotino(QObject):
         else:
             return 0, ""
 
-    def _waitForOpStart(self, strFinished):
+    def _updateTaskFrontend(self, strState):
+        """
+        Updates the state of an transporttaks in the frontend
+
+        Args:
+            strState (str): String of state which should be dislayed as state in frontend
+        """
+        self.deleteTaskInfoSignal.emit(self.task[0], self.task[1], self.id, strState)
+        self.newTaskInfoSignal.emit(self.task[0], self.task[1], self.id, strState)
+
+    def _waitForOpResponse(self, strFinished):
         """
         Waits until automatic operation is started
 
@@ -382,45 +389,19 @@ class Robotino(QObject):
         """
         while True:
             id, state = self._parseCommandInfo()
-            if id == self.id and state == strFinished:
-                return True
-            else:
-                time.sleep(0.5)
-
-    def _updateTaskFrontend(self, strState):
-        """
-        Updates the state of an transporttaks in the frontend
-
-        Args:
-            strState (str): String of state which should be dislayed as state in frontend
-        """
-        self.deleteTaskInfoSignal.emit(self.task[0], self.task[1], self.id, strState)
-        self.newTaskInfoSignal.emit(self.task[0], self.task[1], self.id, strState)
-
-    def _waitForOpEnd(self, strFinished):
-        """
-         Waits until automatic operation is cancelled or robotino reports operation end
-
-        Args:
-            strFinished (str): message which is received when operation is finished
-
-        Returns:
-            bool: if operation ended successfully (True) or not
-        """
-        while True:
-            id, state = self._parseCommandInfo()
-            if id == self.id and state == strFinished:
+            print(f"Robotino: Id: {id}, State: {state}")
+            if int(id) == int(self.id) and state.lower() in strFinished.lower():
                 return True
             elif self.stopFlagAutoOperation.is_set():
                 return False
             else:
-                time.sleep(0.5)
-
+                time.sleep(1)
     """
     Setter
     """
 
     def setCommandInfo(self, msg):
+        appLogger.debug(f"Set commandinfo for Robotino {self.id}: {msg}")
         self.commandInfo = msg
 
     def activateAutoMode(self):

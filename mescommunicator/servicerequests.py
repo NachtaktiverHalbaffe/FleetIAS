@@ -155,6 +155,7 @@ class ServiceRequests(object):
             self._decodeStrFull()
         else:
             appLogger.warning("Error, couldn't decode message")
+        # self._printAttr()
 
     def encodeMessage(self):
         """

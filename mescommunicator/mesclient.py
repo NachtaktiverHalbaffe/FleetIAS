@@ -11,7 +11,7 @@ import numpy as np
 import socket
 import time
 from PySide6.QtCore import QThread, Signal
-from threading import Event
+from threading import Event, Lock
 
 from .servicerequests import ServiceRequests
 from conf import IP_FLEETIAS, TCP_BUFF_SIZE, IP_MES, appLogger
@@ -35,6 +35,7 @@ class MESClient(QThread):
         # params regarding robotinos
         self.statesRobotinos = []
         self.stopFlag = Event()
+        self.lock = Lock()
         self.serviceSocketIsAlive = False
 
     def run(self):
@@ -61,6 +62,7 @@ class MESClient(QThread):
             self.cyclicCommunication()
         except Exception as e:
             appLogger.error("[MESCLIENT] " + str(e))
+        self.serviceSocketIsAlive = False
         self.stoppedSignal.emit()
 
     def getTransportTasks(self, noOfActiveAGV):
@@ -78,6 +80,7 @@ class MESClient(QThread):
         requestGenerator.getTransportTasks(noOfActiveAGV)
         request = requestGenerator.encodeMessage()
         try:
+            self.lock.acquire()
             # send request
             self.SERVICE_SOCKET.send(bytes.fromhex(request))
             msg = self.SERVICE_SOCKET.recv(self.BUFFSIZE)
@@ -89,7 +92,9 @@ class MESClient(QThread):
         except BrokenPipeError:
             self.serviceSocketIsAlive = False
         except Exception as e:
-            appLogger.error("[MESCLIENT] " + str(e))
+            appLogger.error( e)
+        finally:
+            self.lock.release()
 
     def moveBuf(self, robotinoId, resourceId, isLoading):
         """
@@ -104,6 +109,7 @@ class MESClient(QThread):
         requestGenerator.moveBuf(robotinoId, resourceId, isLoading)
         request = requestGenerator.encodeMessage()
         try:
+            self.lock.acquire()
             # send request
             self.SERVICE_SOCKET.send(bytes.fromhex(request))
             while True:
@@ -115,6 +121,8 @@ class MESClient(QThread):
             self.serviceSocketIsAlive = False
         except Exception as e:
             appLogger.error("[MESCLIENT] " + str(e))
+        finally:
+            self.lock.release()
 
     def delBuf(self, robotinoId):
         """
@@ -127,6 +135,7 @@ class MESClient(QThread):
         requestGenerator.delBuf(robotinoId)
         request = requestGenerator.encodeMessage()
         try:
+            self.lock.acquire()
             # send request
             self.SERVICE_SOCKET.send(bytes.fromhex(request))
             while True:
@@ -138,6 +147,8 @@ class MESClient(QThread):
             self.serviceSocketIsAlive = False
         except Exception as e:
             appLogger.error("[MESCLIENT] " + str(e))
+        finally:
+            self.lock.release()
 
     def setDockingPos(self, dockedAt, robotinoId):
         """
@@ -151,6 +162,7 @@ class MESClient(QThread):
         requestGenerator.setDockingPos(int(dockedAt), int(robotinoId))
         request = requestGenerator.encodeMessage()
         try:
+            self.lock.acquire()
             # send request
             self.SERVICE_SOCKET.send(bytes.fromhex(request))
             while True:
@@ -163,6 +175,8 @@ class MESClient(QThread):
             appLogger.error(f"Can't send message to IAS-MES: Connection is broken")
         except Exception as e:
             appLogger.error(str(e))
+        finally:
+            self.lock.release()
 
     def cyclicCommunication(self):
         """
@@ -208,6 +222,7 @@ class MESClient(QThread):
         try:
             self.SERVICE_SOCKET.shutdown(socket.SHUT_RDWR)
             self.CYCLIC_SOCKET.shutdown(socket.SHUT_RDWR)
+            self.serviceSocketIsAlive = False
         except:
             pass
         appLogger.info("Stopped MESClient")
