@@ -61,7 +61,7 @@ class MESClient(QThread):
             self.stopFlag.clear()
             self.cyclicCommunication()
         except Exception as e:
-            appLogger.error("[MESCLIENT] " + str(e))
+            appLogger.warning(e)
         self.serviceSocketIsAlive = False
         self.stoppedSignal.emit()
 
@@ -92,7 +92,7 @@ class MESClient(QThread):
         except BrokenPipeError:
             self.serviceSocketIsAlive = False
         except Exception as e:
-            appLogger.error( e)
+            appLogger.error(e)
         finally:
             self.lock.release()
 
@@ -219,10 +219,10 @@ class MESClient(QThread):
 
     def stopClient(self):
         self.stopFlag.set()
+        self.serviceSocketIsAlive = False
         try:
             self.SERVICE_SOCKET.shutdown(socket.SHUT_RDWR)
             self.CYCLIC_SOCKET.shutdown(socket.SHUT_RDWR)
-            self.serviceSocketIsAlive = False
         except:
             pass
         appLogger.info("Stopped MESClient")

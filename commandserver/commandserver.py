@@ -15,47 +15,22 @@ import time
 from PySide6.QtCore import QThread, Signal
 
 from conf import IP_ROS, IP_FLEETIAS, TCP_BUFF_SIZE, appLogger, rosLogger
-from robotinomanager.robotino import Robotino
-from robotinomanager.robotinomanager import RobotinoManager
 
 
 class CommandServer(QThread):
     """
     Class for sending commands to robotino or ROS
-
-    Attributes
-    ----------
-    PORT : int
-        TCP Port for the robotino server
-    PORTROS: int
-        TCP port of the ROS TCP server
-    HOST : str
-        IP address of FleetIAS
-    HOSTROS  : str
-        IP adress of ROS master
-    ADDR: (str, int)
-        Complete ip address of robotino server
-    ADDRROS: (str, int)
-        Complete ip address of ROS TCP server
     """
-
-    stoppedSignal = Signal()
 
     def __init__(self):
         super(CommandServer, self).__init__()
         # setup addr
-        self.PORT = 13004
-        self.PORTROS = 13002
-        self.HOST = IP_FLEETIAS
-        self.HOSTROS = IP_ROS
-        self.ADDR = (self.HOST, self.PORT)
-        self.ADDRROS = (self.HOSTROS, self.PORTROS)
-
+        self.ADDR = (IP_FLEETIAS, 13004)
+        self.ADDRROS = (IP_ROS, 13002)
         # setup socket
         self.SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.SERVER.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.stopFlag = Event()
-
         # robotinomanager for delegating messages to be handled
         self.robotinoManager = None
 
@@ -64,8 +39,6 @@ class CommandServer(QThread):
         Starts the Commandserver in its own thread
         """
         self.stopFlag.clear()
-        self.SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.SERVER.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         appLogger.info("Commandserver started")
         # Start Tcp server
         try:
@@ -73,9 +46,9 @@ class CommandServer(QThread):
             self.SERVER.listen()
             self.waitForConnection()
         except Exception as e:
-            appLogger.error(e)
+            appLogger.warning(e)
 
-        self.stoppedSignal.emit()
+        self.stopServer()
 
     def waitForConnection(self):
         """
@@ -216,7 +189,7 @@ class CommandServer(QThread):
 
         # Connect to ROS
         clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        clientSocket.connect((self.HOSTROS, self.PORTROS))
+        clientSocket.connect(self.ADDRROS)
         # Send command to ROS
         clientSocket.sendall(bytes(json.dumps(request), encoding="utf-8"))
         while not self.stopFlag.is_set():
@@ -230,9 +203,9 @@ class CommandServer(QThread):
             elif ROS_RESP_OFFSET in data.lower():
                 rosLogger.info(f"Command run successfully on ROS: AddOffset")
             elif ROS_RESP_ERR in data.lower():
-                rosLogger.error(msg="[ROS] " + data.split(":")[1])
+                rosLogger.error(data.split(":")[1])
             else:
-                rosLogger.error(f"[ROS] Unkown response: {data}")
+                rosLogger.error(f"Unkown response: {data}")
             clientSocket.close()
             return data
 
@@ -312,7 +285,7 @@ class CommandServer(QThread):
                 "feature": feature,
                 "value": value,
             }
-            Thread(target=self.runClientROS, args=[request]).start()
+            return self.runClientROS(request)
         else:
             appLogger.error("Wrong argument value: {value}. Must be an bool")
 
@@ -339,7 +312,7 @@ class CommandServer(QThread):
                 "feature": name,
                 "offset": offset,
             }
-            self.runClientROS(request)
+            return self.runClientROS(request)
         else:
             appLogger.error(
                 f"Argument offset: {offset} has wrong format. Must be an float"
