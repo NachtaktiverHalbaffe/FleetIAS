@@ -16,30 +16,31 @@ from conf import POLL_TIME_STATUSUPDATES, POLL_TIME_TASKS, appLogger
 
 
 class RobotinoManager(QThread):
-    errorSignal = Signal(str, int)
+    deleteTaskInfoSignal = Signal(int, int, int, str)
+    newTaskInfoSignal = Signal(int, int, int, str)
+    statesRobotinoSignal = Signal(list)
 
-    def __init__(self, mesClient, robotinoServer,guiManager=None):
+    def __init__(self, mesClient, robotinoServer):
         super(RobotinoManager, self).__init__()
         # fleet
         self.fleet = []
         # params for automated control
         self.transportTasks = []
         self.commandInfo = ""
-        self.stopFlagCyclicUpdates = Event()
-        self.stopFlagAutoOperation = Event()
-        self.stopFlag = Event()
         self.POLL_TIME_STATEUPDATES = POLL_TIME_STATUSUPDATES
         self.POLL_TIME_TASKS = POLL_TIME_TASKS
         # instances of mesclient and commandserver for executing operations
         self.mesClient = mesClient
         self.robotinoServer = robotinoServer
-        self.guiManager = guiManager
         # Internal threading
         self.isAutoMode = False
         self.runsStateUpdates = False
+        self.stopFlagCyclicUpdates = Event()
+        self.stopFlagAutoOperation = Event()
+        self.stopFlag = Event()
         self.automatedOpThread = Thread(target=self.automatedOperation)
         self.cyclicStateUpdateThread = Thread(target=self.cyclicStateUpdate)
-        self.robotinoServerLock= Lock()
+        self.robotinoServerLock = Lock()
 
     def __del__(self):
         self.stopAutomatedOperation()
@@ -68,10 +69,13 @@ class RobotinoManager(QThread):
                     and not self.cyclicStateUpdateThread.is_alive()
                 ):
                     self.stopFlagCyclicUpdates.set()
-        except:
-            pass
-        appLogger.info("Stopped RobotinoManager")
+
+                time.sleep(1)
+        except Exception as e:
+            appLogger.error(f"Robotinomanager crashed. Exception: {e}")
+
         self.fleet = []
+        appLogger.info("Stopped RobotinoManager")
 
     def createFleet(self, msg):
         """
@@ -91,8 +95,8 @@ class RobotinoManager(QThread):
                 )
                 robotino.id = int(id)
                 robotino.manualMode = True
-                robotino.deleteTaskInfoSignal.connect(self.guiManager.deleteTransportTask)
-                robotino.newTaskInfoSignal.connect(self.guiManager.addTransportTask)
+                robotino.deleteTaskInfoSignal.connect(self.deleteTaskInfoSignal.emit)
+                robotino.newTaskInfoSignal.connect(self.newTaskInfoSignal.emit)
                 self.fleet.append(robotino)
         else:
             robotino = Robotino(
@@ -115,9 +119,7 @@ class RobotinoManager(QThread):
                 self.robotinoServer.lock.release()
             self.mesClient.setStatesRobotinos(self.fleet)
             # only do updates in gui if module runs/is configured with gui
-            if self.guiManager != None:
-                self.guiManager.setStatesRobotino(self.fleet)
-            
+            self.statesRobotinoSignal.emit(self.fleet)
             time.sleep(self.POLL_TIME_STATEUPDATES)
         # reset stopflag after the cyclicStateUpdate got killed
         appLogger.info("[ROBOTINOMANAGER] Stopped cyclic state updates")
@@ -129,15 +131,13 @@ class RobotinoManager(QThread):
         """
         appLogger.info("Started automated operation")
         self.stopFlagAutoOperation.clear()
-        lastUpdate = time.time()
+
         while not self.stopFlagAutoOperation.is_set():
             # poll transport task from mes
             print(self.transportTasks)
 
             if self.mesClient.serviceSocketIsAlive:
-                self.transportTasks = self.mesClient.getTransportTasks(
-                    len(self.fleet)
-                )
+                self.transportTasks = self.mesClient.getTransportTasks(len(self.fleet))
             if self.transportTasks != None:
                 self.transportTasks = list(self.transportTasks)
                 # assign Tasks
@@ -150,7 +150,9 @@ class RobotinoManager(QThread):
                             break
                     # assign task if it isnt already assigned
                     if not isAlreadyAssigned:
-                        appLogger.debug(f"Got transport task {task} from MES. Assigning to Robotino")
+                        appLogger.debug(
+                            f"Got transport task {task} from MES. Assigning to Robotino"
+                        )
                         for robotino in self.fleet:
                             if (
                                 robotino.task == (0, 0)
@@ -161,11 +163,9 @@ class RobotinoManager(QThread):
                                     "Assigned task to robotino " + str(robotino.id)
                                 )
                                 robotino.task = task
-                                Thread(
-                                    target=robotino.executeTransportTask,                             
-                                ).start()
+                                robotino.start()
                                 break
-            
+
             time.sleep(self.POLL_TIME_TASKS)
 
         appLogger.info("Stopped automated operation")
@@ -173,20 +173,7 @@ class RobotinoManager(QThread):
         # reset stopflag after the automatedOperation got killed
         self.stopFlagAutoOperation.clear()
 
-    def handleError(self, errMsg, robotinoId, isAutoRetrying=False):
-        """
-        Handles error when robotino returns an error during operation
-
-        Params:
-            errMsg (str): error message
-            robotinoId (int): id of robotino which has the error
-            isAutoRetring (bool): if operation is automatically retried (only necessary if package is running without gui)
-        """
-        self.errorSignal.emit(errMsg, robotinoId)
-        if isAutoRetrying:
-            self.retryOp(errorMsg=errMsg, robotinoId=robotinoId)
-
-    def retryOp(self, errorMsg, robotinoId, buttonClicked=None):
+    def retryOp(self, errorMsg, robotinoId):
         """
         Retries an failed operation
 
@@ -269,9 +256,10 @@ class RobotinoManager(QThread):
         self.stopFlagAutoOperation.set()
         self.stopFlagCyclicUpdates.set()
         self.stopFlag.set()
-        self.fleet=[]
-        if self.guiManager != None:
-            self.guiManager.setStatesRobotino(self.fleet)
+        for robotino in self.fleet:
+            robotino.stopFlagAutoOperation.set()
+        self.fleet = []
+        self.statesRobotinoSignal.emit(self.fleet)
 
 
 if __name__ == "__main__":
