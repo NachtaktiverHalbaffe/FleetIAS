@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>800</width>
-    <height>630</height>
+    <height>744</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -68,7 +68,7 @@
          <number>0</number>
         </property>
         <property name="columnCount">
-         <number>5</number>
+         <number>7</number>
         </property>
         <attribute name="horizontalHeaderCascadingSectionResizes">
          <bool>true</bool>
@@ -130,6 +130,16 @@
           <font>
            <bold>true</bold>
           </font>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>x</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>y</string>
          </property>
         </column>
        </widget>

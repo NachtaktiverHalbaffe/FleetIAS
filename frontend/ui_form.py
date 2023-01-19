@@ -25,7 +25,7 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(800, 630)
+        MainWindow.resize(800, 744)
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.verticalLayout = QVBoxLayout(self.centralwidget)
@@ -53,8 +53,8 @@ class Ui_MainWindow(object):
         self.gridViewRobotinoManager.addWidget(self.buttonStartCommandServer, 2, 0, 1, 1)
 
         self.tableViewRobotinos = QTableWidget(self.centralwidget)
-        if (self.tableViewRobotinos.columnCount() < 5):
-            self.tableViewRobotinos.setColumnCount(5)
+        if (self.tableViewRobotinos.columnCount() < 7):
+            self.tableViewRobotinos.setColumnCount(7)
         font = QFont()
         font.setBold(True)
         __qtablewidgetitem = QTableWidgetItem()
@@ -72,10 +72,14 @@ class Ui_MainWindow(object):
         __qtablewidgetitem4 = QTableWidgetItem()
         __qtablewidgetitem4.setFont(font);
         self.tableViewRobotinos.setHorizontalHeaderItem(4, __qtablewidgetitem4)
+        __qtablewidgetitem5 = QTableWidgetItem()
+        self.tableViewRobotinos.setHorizontalHeaderItem(5, __qtablewidgetitem5)
+        __qtablewidgetitem6 = QTableWidgetItem()
+        self.tableViewRobotinos.setHorizontalHeaderItem(6, __qtablewidgetitem6)
         self.tableViewRobotinos.setObjectName(u"tableViewRobotinos")
         self.tableViewRobotinos.setGridStyle(Qt.SolidLine)
         self.tableViewRobotinos.setRowCount(0)
-        self.tableViewRobotinos.setColumnCount(5)
+        self.tableViewRobotinos.setColumnCount(7)
         self.tableViewRobotinos.horizontalHeader().setCascadingSectionResizes(True)
         self.tableViewRobotinos.horizontalHeader().setMinimumSectionSize(80)
         self.tableViewRobotinos.horizontalHeader().setProperty("showSortIndicator", True)
@@ -97,18 +101,18 @@ class Ui_MainWindow(object):
         self.tableViewMes = QTableWidget(self.centralwidget)
         if (self.tableViewMes.columnCount() < 4):
             self.tableViewMes.setColumnCount(4)
-        __qtablewidgetitem5 = QTableWidgetItem()
-        __qtablewidgetitem5.setFont(font);
-        self.tableViewMes.setHorizontalHeaderItem(0, __qtablewidgetitem5)
-        __qtablewidgetitem6 = QTableWidgetItem()
-        __qtablewidgetitem6.setFont(font);
-        self.tableViewMes.setHorizontalHeaderItem(1, __qtablewidgetitem6)
         __qtablewidgetitem7 = QTableWidgetItem()
         __qtablewidgetitem7.setFont(font);
-        self.tableViewMes.setHorizontalHeaderItem(2, __qtablewidgetitem7)
+        self.tableViewMes.setHorizontalHeaderItem(0, __qtablewidgetitem7)
         __qtablewidgetitem8 = QTableWidgetItem()
         __qtablewidgetitem8.setFont(font);
-        self.tableViewMes.setHorizontalHeaderItem(3, __qtablewidgetitem8)
+        self.tableViewMes.setHorizontalHeaderItem(1, __qtablewidgetitem8)
+        __qtablewidgetitem9 = QTableWidgetItem()
+        __qtablewidgetitem9.setFont(font);
+        self.tableViewMes.setHorizontalHeaderItem(2, __qtablewidgetitem9)
+        __qtablewidgetitem10 = QTableWidgetItem()
+        __qtablewidgetitem10.setFont(font);
+        self.tableViewMes.setHorizontalHeaderItem(3, __qtablewidgetitem10)
         self.tableViewMes.setObjectName(u"tableViewMes")
         self.tableViewMes.setTextElideMode(Qt.ElideRight)
         self.tableViewMes.setWordWrap(True)
@@ -370,15 +374,19 @@ class Ui_MainWindow(object):
         ___qtablewidgetitem3.setText(QCoreApplication.translate("MainWindow", u"Error", None));
         ___qtablewidgetitem4 = self.tableViewRobotinos.horizontalHeaderItem(4)
         ___qtablewidgetitem4.setText(QCoreApplication.translate("MainWindow", u"State", None));
+        ___qtablewidgetitem5 = self.tableViewRobotinos.horizontalHeaderItem(5)
+        ___qtablewidgetitem5.setText(QCoreApplication.translate("MainWindow", u"x", None));
+        ___qtablewidgetitem6 = self.tableViewRobotinos.horizontalHeaderItem(6)
+        ___qtablewidgetitem6.setText(QCoreApplication.translate("MainWindow", u"y", None));
         self.buttonStartMesClient.setText(QCoreApplication.translate("MainWindow", u"Connect to MES", None))
-        ___qtablewidgetitem5 = self.tableViewMes.horizontalHeaderItem(0)
-        ___qtablewidgetitem5.setText(QCoreApplication.translate("MainWindow", u"Start", None));
-        ___qtablewidgetitem6 = self.tableViewMes.horizontalHeaderItem(1)
-        ___qtablewidgetitem6.setText(QCoreApplication.translate("MainWindow", u"Target", None));
-        ___qtablewidgetitem7 = self.tableViewMes.horizontalHeaderItem(2)
-        ___qtablewidgetitem7.setText(QCoreApplication.translate("MainWindow", u"Assigned Robotino", None));
-        ___qtablewidgetitem8 = self.tableViewMes.horizontalHeaderItem(3)
-        ___qtablewidgetitem8.setText(QCoreApplication.translate("MainWindow", u"State", None));
+        ___qtablewidgetitem7 = self.tableViewMes.horizontalHeaderItem(0)
+        ___qtablewidgetitem7.setText(QCoreApplication.translate("MainWindow", u"Start", None));
+        ___qtablewidgetitem8 = self.tableViewMes.horizontalHeaderItem(1)
+        ___qtablewidgetitem8.setText(QCoreApplication.translate("MainWindow", u"Target", None));
+        ___qtablewidgetitem9 = self.tableViewMes.horizontalHeaderItem(2)
+        ___qtablewidgetitem9.setText(QCoreApplication.translate("MainWindow", u"Assigned Robotino", None));
+        ___qtablewidgetitem10 = self.tableViewMes.horizontalHeaderItem(3)
+        ___qtablewidgetitem10.setText(QCoreApplication.translate("MainWindow", u"State", None));
         self.buttonStopMesClient.setText(QCoreApplication.translate("MainWindow", u"Disconnect from MES", None))
         self.labelMES.setText(QCoreApplication.translate("MainWindow", u"## MES", None))
         self.labelRobotinoId.setText(QCoreApplication.translate("MainWindow", u"#### Id of robotino", None))
