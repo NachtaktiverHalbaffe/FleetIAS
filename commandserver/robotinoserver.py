@@ -77,83 +77,85 @@ class RobotinoServer(QThread):
                 self.getAllRobotinoID()
             elif self.encodedMsg != "":
                 data = bytes.fromhex(self.encodedMsg)
-                client.send(data)
-                self.encodedMsg = ""
+                try:
+                    client.send(data)
+                    self.encodedMsg = ""
+                    response = client.recv(TCP_BUFF_SIZE)
 
-                response = client.recv(TCP_BUFF_SIZE)
+                    if response:
+                        response = response.decode("utf-8")
+                        # -------------------- Error handling ------------------------
+                        # station doesnt respond when loading/unloading carrier
+                        if "error" in response.lower():
+                            _, id = self._parseCommandInfo(response)
+                            # Give Robotino error msgs
+                            if self.robotinoManager != None:
+                                self.robotinoManager.setCommandInfo(response)
+                            errMsg = ""
+                            if (
+                                "loadbox" in response.lower()
+                                and "station" in response.lower()
+                            ):
+                                errMsg = (
+                                    "Error while loading carrier: Station didn't respond"
+                                )
+                                appLogger.error(errMsg)
+                            elif (
+                                "unloadbox" in response.lower()
+                                and "station" in response.lower()
+                            ):
+                                errMsg = (
+                                    "Error while unloading Carrier: Station didn't respond"
+                                )
+                            # robotino tries to undock but isnt docked
+                            elif "docked" in response.lower():
+                                errMsg = "Error while undocking from resource: Robotino isn't docked"
+                            # robotino tries to dock but didnt find markers to dock
+                            elif "station" in response.lower():
+                                errMsg = "Error while docking to resource: Robotino couldn't find markers to dock"
+                            # robotino tries to drive to resource but path is blocked
+                            elif "path" in response.lower():
+                                errMsg = "Error while driving to resource: Path is blocked"
+                            # robotino tries to load carrier, but a carrier is already present on robotino
+                            elif "loadbox" in response.lower():
+                                errMsg = "Error while loading carrier: A carrier is already present on carrier"
+                            elif "unloadbox" in response.lower():
+                                errMsg = "Error while unloading carrier: After finishing operation the box is still present"
+                            # robotino tries to load carrier, but didnt get a carrier from station
+                            elif "present" in response.lower():
+                                errMsg = "Error while unloading carrier: Robotino hasn't a box present"
+                            elif "loadbox" in response.lower() and "no_box" in response.lower():
+                                errMsg = "Error while loading carrier: Carrier was not sucessfully loaded"
+                            else:
+                                print(f"Unclassified error occured: {response}")
 
-                if response:
-                    response = response.decode("utf-8")
-                    # -------------------- Error handling ------------------------
-                    # station doesnt respond when loading/unloading carrier
-                    if "error" in response.lower():
-                        _, id = self._parseCommandInfo(response)
-                        # Give Robotino error msgs
-                        if self.robotinoManager != None:
-                            self.robotinoManager.setCommandInfo(response)
-                        errMsg = ""
-                        if (
-                            "loadbox" in response.lower()
-                            and "station" in response.lower()
-                        ):
-                            errMsg = (
-                                "Error while loading carrier: Station didn't respond"
-                            )
+                            self.errorSignal.emit(errMsg, id)
                             appLogger.error(errMsg)
-                        elif (
-                            "unloadbox" in response.lower()
-                            and "station" in response.lower()
-                        ):
-                            errMsg = (
-                                "Error while unloading Carrier: Station didn't respond"
-                            )
-                        # robotino tries to undock but isnt docked
-                        elif "docked" in response.lower():
-                            errMsg = "Error while undocking from resource: Robotino isn't docked"
-                        # robotino tries to dock but didnt find markers to dock
-                        elif "station" in response.lower():
-                            errMsg = "Error while docking to resource: Robotino couldn't find markers to dock"
-                        # robotino tries to drive to resource but path is blocked
-                        elif "path" in response.lower():
-                            errMsg = "Error while driving to resource: Path is blocked"
-                        # robotino tries to load carrier, but a carrier is already present on robotino
-                        elif "loadbox" in response.lower():
-                            errMsg = "Error while loading carrier: A carrier is already present on carrier"
-                        elif "unloadbox" in response.lower():
-                            errMsg = "Error while unloading carrier: After finishing operation the box is still present"
-                        # robotino tries to load carrier, but didnt get a carrier from station
-                        elif "present" in response.lower():
-                            errMsg = "Error while unloading carrier: Robotino hasn't a box present"
-                        elif "loadbox" in response.lower() and "no_box" in response.lower():
-                            errMsg = "Error while loading carrier: Carrier was not sucessfully loaded"
+                            self.endTask(id)
+
+                        # -------- Handling responses from commands -----------
+                        # response from commandexecution
+                        if "commandinfo" in response.lower():
+                            if self.robotinoManager != None:
+                                self.robotinoManager.setCommandInfo(response)
+                        # fetch state message
+                        elif "robotinfo" in response.lower():
+                            strId = response.split("robotinoid:")
+                            id = int(strId[1][0])
+                            if self.robotinoManager != None:
+                                robotino = self.robotinoManager.getRobotino(id)
+                                robotino.fetchStateMsg(response)
+                        # create/update fleet
+                        elif "allrobotinoid" in response.lower():
+                            if self.robotinoManager != None:
+                                self.robotinoManager.createFleet(response)
+                        # print out response which isnt handled when received
                         else:
-                            print(f"Unclassified error occured: {response}")
-
-                        self.errorSignal.emit(errMsg, id)
-                        appLogger.error(errMsg)
-                        self.endTask(id)
-
-                    # -------- Handling responses from commands -----------
-                    # response from commandexecution
-                    if "commandinfo" in response.lower():
-                        if self.robotinoManager != None:
-                            self.robotinoManager.setCommandInfo(response)
-                    # fetch state message
-                    elif "robotinfo" in response.lower():
-                        strId = response.split("robotinoid:")
-                        id = int(strId[1][0])
-                        if self.robotinoManager != None:
-                            robotino = self.robotinoManager.getRobotino(id)
-                            robotino.fetchStateMsg(response)
-                    # create/update fleet
-                    elif "allrobotinoid" in response.lower():
-                        if self.robotinoManager != None:
-                            self.robotinoManager.createFleet(response)
-                    # print out response which isnt handled when received
-                    else:
-                        appLogger.error(
-                            "Catched unhandled response from robotino: " + str(response)
-                        )
+                            appLogger.error(
+                                "Catched unhandled response from robotino: " + str(response)
+                            )
+                except Exception as e:
+                    print(e)
 
     def strToBin(self, request):
         """

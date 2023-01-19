@@ -35,7 +35,7 @@ stream_handler_app.setFormatter(log_formatter_app)
 stream_handler_app.setLevel(logging.INFO)
 # setup logger itself
 appLogger = logging.getLogger(__name__)
-appLogger.setLevel(logging.INFO)
+appLogger.setLevel(logging.DEBUG)
 # add logger handler to logger
 appLogger.handlers = []
 appLogger.addHandler(stream_handler_app)

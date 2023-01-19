@@ -169,9 +169,8 @@ class Robotino(QThread):
         self.undock(retryOp=False)
 
         # -------------------- Unload carrier at target ------------------------
-        # update state of transport task in gui
-        self._updateTaskFrontend("Transporting")
         # drive to target
+        self._updateTaskFrontend("Transporting")
         time.sleep(SLEEP_TIME)
         self.driveTo(self.task[1], retryOp=False)
         # dock to resource

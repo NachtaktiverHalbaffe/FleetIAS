@@ -218,7 +218,6 @@ class RobotinoManager(QThread):
     def setCommandInfo(self, msg):
         self.commandInfo = msg
         id = self._getIDfromCommandInfo()
-        print(f"RobotinoManager: Id: {id}, Message: {msg}")
         self.getRobotino(int(id)).setCommandInfo(msg)
 
     def getRobotino(self, id):
