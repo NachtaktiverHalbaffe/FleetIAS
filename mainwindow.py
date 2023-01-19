@@ -13,7 +13,7 @@ cgitb.enable(format="text")
 
 import sys
 import logging
-from threading import Thread
+from threading import Thread, Event
 from PySide6.QtWidgets import (
     QMessageBox,
     QMainWindow,
@@ -74,20 +74,20 @@ class MainWindow(QMainWindow):
         self.ui.pushButton_offset.setEnabled(False)
         self.ui.pushButton_feature.setEnabled(False)
         self.setEnabledManualButtons(False)
-
+        self.errorEvent = Event()
         ##############################################
         # ---------------- Setup Application --------------------
         ##############################################
         self.robotinoServer = RobotinoServer()
         self.commandServer = CommandServer()
         self.mesClient = MESClient()
-        self.robotinoManager = RobotinoManager(self.robotinoServer, self.mesClient)
+        self.robotinoManager = RobotinoManager(robotinoServer= self.robotinoServer,mesClient= self.mesClient)
         self.robotinoServer.setRobotinoManager(self.robotinoManager)
         self.commandServer.setRobotinoManager(self.robotinoManager)
         # Start threads
         self.commandServer.start()
-        self.robotinoServer.start()
-        self.mesClient.start()
+        self.startCommandServer()
+        self.startMesClient()
         # Connect callback functions of threads
         self.robotinoServer.errorSignal.connect(self.showErrorDialog)
         self.robotinoServer.stoppedSignal.connect(self.stopCommandServer)
@@ -205,6 +205,10 @@ class MainWindow(QMainWindow):
         """
         Setup Dialog
         """
+        if self.errorEvent.is_set():
+            return 
+        
+        self.errorEvent.set()
         dialog = QMessageBox()
         # set dialog title
         dialog.setWindowTitle("Error")
@@ -221,6 +225,9 @@ class MainWindow(QMainWindow):
         returnValue = dialog.exec()
         if returnValue == QMessageBox.Retry:
             self.robotinoManager.retryOp(errMsg, robotinoId)
+        elif returnValue == QMessageBox.Abort:
+            self.endTask(robotinoId)
+        self.errorEvent.clear()
 
     # -------------------- Callback functions -----------------------------
     def startCommandServer(self):
@@ -392,17 +399,21 @@ class MainWindow(QMainWindow):
                 "[FLEETIAS] Couldnt execute command because robotino is not present"
             )
 
-    def endTask(self):
+    def endTask(self, robotinoId=0):
         """
         Callback function to manual end task of Robotino
         """
-        robotino = self.robotinoManager.getRobotino(self.ui.inputRobtinoId.value())
-        if robotino != None:
-            Thread(target=robotino.endTask).start()
+        if(robotinoId==0):
+            robotino = self.robotinoManager.getRobotino(self.ui.inputRobtinoId.value())
+            if robotino != None:
+                Thread(target=robotino.endTask).start() 
+            else:
+                appLogger.error(
+                    "[FLEETIAS] Couldnt execute command because robotino is not present"
+                )
         else:
-            appLogger.error(
-                "[FLEETIAS] Couldnt execute command because robotino is not present"
-            )
+            Thread(target=self.robotinoServer.endTask, args=[robotinoId]).start()
+
 
     def setAutoMode(self):
         """

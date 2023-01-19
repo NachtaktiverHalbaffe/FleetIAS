@@ -84,11 +84,10 @@ class RobotinoServer(QThread):
 
                 if response:
                     response = response.decode("utf-8")
-                    _, id = self._parseCommandInfo(response)
-
                     # -------------------- Error handling ------------------------
                     # station doesnt respond when loading/unloading carrier
                     if "error" in response.lower():
+                        _, id = self._parseCommandInfo(response)
                         # Give Robotino error msgs
                         if self.robotinoManager != None:
                             self.robotinoManager.setCommandInfo(response)
@@ -125,7 +124,7 @@ class RobotinoServer(QThread):
                         # robotino tries to load carrier, but didnt get a carrier from station
                         elif "present" in response.lower():
                             errMsg = "Error while unloading carrier: Robotino hasn't a box present"
-                        elif "loadbox" in response.lower():
+                        elif "loadbox" in response.lower() and "no_box" in response.lower():
                             errMsg = "Error while loading carrier: Carrier was not sucessfully loaded"
                         else:
                             print(f"Unclassified error occured: {response}")
@@ -163,14 +162,12 @@ class RobotinoServer(QThread):
         Args:
             request (str): The message to convert
         """
-        self.lock.acquire()
         self.encodedMsg = ""
         for i in range(len(request)):
             # convert character to hex value
             self.encodedMsg += str(format(ord(request[i]), "x"))
         # line of end ascii
         self.encodedMsg += "0a"
-        self.lock.release()
 
     def loadBox(self, resourceId=7):
         """
@@ -308,10 +305,12 @@ class RobotinoServer(QThread):
             id (int): ResourceId of Robotino from which the command info comes
         """
         id = msg.split("robotinoid:")
+        print(f"parsMsg: {msg}")
         if id[0] != "":
             id = int(id[1][0])
             state = msg.split('"')
-            state = state[1]
+            if len(state)>= 2:
+                state = state[1]
 
             return id, state
         else:

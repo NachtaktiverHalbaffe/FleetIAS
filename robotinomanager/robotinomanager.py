@@ -95,8 +95,8 @@ class RobotinoManager(QThread):
                 )
                 robotino.id = int(id)
                 robotino.manualMode = True
-                robotino.deleteTaskInfoSignal.connect(self.deleteTaskInfoSignal.emit)
-                robotino.newTaskInfoSignal.connect(self.newTaskInfoSignal.emit)
+                robotino.deleteTaskInfoSignal.connect(self.emitDeleteTaskInfo)
+                robotino.newTaskInfoSignal.connect(self.emitNewTaskInfo)
                 self.fleet.append(robotino)
         else:
             robotino = Robotino(
@@ -105,6 +105,7 @@ class RobotinoManager(QThread):
             robotino.id = 7
             robotino.manualMode = True
             self.fleet.append(robotino)
+        self.statesRobotinoSignal.emit(self.fleet)
         self.startCyclicStateUpdate()
 
     def cyclicStateUpdate(self):
@@ -118,7 +119,6 @@ class RobotinoManager(QThread):
                 self.robotinoServer.getRobotinoInfo(robotino.id)
                 self.robotinoServer.lock.release()
             self.mesClient.setStatesRobotinos(self.fleet)
-            # only do updates in gui if module runs/is configured with gui
             self.statesRobotinoSignal.emit(self.fleet)
             time.sleep(self.POLL_TIME_STATEUPDATES)
         # reset stopflag after the cyclicStateUpdate got killed
@@ -134,8 +134,6 @@ class RobotinoManager(QThread):
 
         while not self.stopFlagAutoOperation.is_set():
             # poll transport task from mes
-            print(self.transportTasks)
-
             if self.mesClient.serviceSocketIsAlive:
                 self.transportTasks = self.mesClient.getTransportTasks(len(self.fleet))
             if self.transportTasks != None:
@@ -249,6 +247,13 @@ class RobotinoManager(QThread):
     def setUseOldControlForWholeFleet(self, value):
         for robotino in self.fleet:
             robotino.useOldControl = value
+    
+    def emitNewTaskInfo(self,start:int,target:int,robotinoId:int,state:str):
+        self.newTaskInfoSignal.emit(start,target,robotinoId,state)
+
+    
+    def emitDeleteTaskInfo(self,start:int,target:int,robotinoId:int,state:str):
+        self.deleteTaskInfoSignal.emit(start,target,robotinoId,state)
 
     def stop(self):
         self.isAutoMode = False

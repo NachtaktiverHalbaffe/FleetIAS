@@ -84,6 +84,7 @@ class MESClient(QThread):
             # send request
             self.SERVICE_SOCKET.send(bytes.fromhex(request))
             msg = self.SERVICE_SOCKET.recv(self.BUFFSIZE)
+            self.lock.release()
             if msg:
                 responseGenerator = ServiceRequests()
                 responseGenerator.decodeMessage(binascii.hexlify(msg).decode())
@@ -93,8 +94,7 @@ class MESClient(QThread):
             self.serviceSocketIsAlive = False
         except Exception as e:
             appLogger.error(e)
-        finally:
-            self.lock.release()
+  
 
     def moveBuf(self, robotinoId, resourceId, isLoading):
         """
@@ -115,14 +115,13 @@ class MESClient(QThread):
             while True:
                 # get response and fetch transport tasks
                 msg = self.SERVICE_SOCKET.recv(self.BUFFSIZE)
+                self.lock.release()
                 if msg:
                     return True
         except BrokenPipeError:
             self.serviceSocketIsAlive = False
         except Exception as e:
             appLogger.error("[MESCLIENT] " + str(e))
-        finally:
-            self.lock.release()
 
     def delBuf(self, robotinoId):
         """
@@ -141,14 +140,13 @@ class MESClient(QThread):
             while True:
                 # get response and fetch transport tasks
                 msg = self.SERVICE_SOCKET.recv(self.BUFFSIZE)
+                self.lock.release()
                 if msg:
                     return True
         except BrokenPipeError:
             self.serviceSocketIsAlive = False
         except Exception as e:
             appLogger.error("[MESCLIENT] " + str(e))
-        finally:
-            self.lock.release()
 
     def setDockingPos(self, dockedAt, robotinoId):
         """
@@ -168,6 +166,7 @@ class MESClient(QThread):
             while True:
                 # get response and fetch transport tasks
                 msg = self.SERVICE_SOCKET.recv(self.BUFFSIZE)
+                self.lock.release()
                 if msg:
                     return True
         except BrokenPipeError:
@@ -175,8 +174,6 @@ class MESClient(QThread):
             appLogger.error(f"Can't send message to IAS-MES: Connection is broken")
         except Exception as e:
             appLogger.error(str(e))
-        finally:
-            self.lock.release()
 
     def cyclicCommunication(self):
         """

@@ -78,7 +78,8 @@ class Robotino(QThread):
         self.batteryVoltage = float(strBattery[0])
         # fetch laserwarning
         strLaserWarning = msg.split("laserwarning:")
-        strLaserWarning = strLaserWarning[1].split(" ")
+        if len(strLaserWarning)>= 2:
+            strLaserWarning = strLaserWarning[1].split(" ")
         if "0" in strLaserWarning[0]:
             self.laserWarning = False
         elif "1" in strLaserWarning[0]:
@@ -143,50 +144,52 @@ class Robotino(QThread):
         """
         Execute an transport task which got assigend from the IAS-MES
         """
-        SLEEP_TIME = 0
+        SLEEP_TIME = 1
         self.busy = True
         self.stopFlagAutoOperation.clear()
 
         ### --------------------  Load carrier at start ------------------------
         # only do updates in gui if module runs/is configured with gui
-        self._updateTaskFrontend("loading")
+        self._updateTaskFrontend("Driving to start")
         time.sleep(SLEEP_TIME)
         # drive to start
         if self.dockedAt != int(self.task[0]):
-            self.driveTo(self.task[0], retryOp=True)
+            self.driveTo(self.task[0], retryOp=False)
         # dock to resource
+        self._updateTaskFrontend("Docking at start")
         time.sleep(SLEEP_TIME)
         if self.dockedAt != int(self.task[0]):
-            self.dock(self.task[0], retryOp=True)
+            self.dock(self.task[0], retryOp=False)
         # load box
+        self._updateTaskFrontend("Loading")
         time.sleep(SLEEP_TIME)
-        self.loadCarrier(retryOp=True)
+        self.loadCarrier(retryOp=False)
         # undock
         time.sleep(SLEEP_TIME)
-        self.undock(retryOp=True)
+        self.undock(retryOp=False)
 
         # -------------------- Unload carrier at target ------------------------
         # update state of transport task in gui
-        self._updateTaskFrontend("transporting")
+        self._updateTaskFrontend("Transporting")
         # drive to target
         time.sleep(SLEEP_TIME)
-        self.driveTo(self.task[1], retryOp=True)
-        # update state of transport task in gui
-        self._updateTaskFrontend("unloading")
+        self.driveTo(self.task[1], retryOp=False)
         # dock to resource
+        self._updateTaskFrontend("Docking at target")
         time.sleep(SLEEP_TIME)
-        self.dock(self.task[1], retryOp=True)
-        # load box
+        self.dock(self.task[1], retryOp=False)
+        # Unload box
+        self._updateTaskFrontend("Unloading")
         time.sleep(SLEEP_TIME)
-        self.unloadCarrier(retryOp=True)
+        self.unloadCarrier(retryOp=False)
 
         # ---------------------------- Finishing task --------------------------
         # update state of transport task in gui
         self._updateTaskFrontend("finished")
         # inform robotino
-        self.robotinoServer.lock.acquire()
-        self.robotinoServer.ack(self.id)
-        self.robotinoServer.lock.release()
+        # self.robotinoServer.lock.acquire()
+        # self.robotinoServer.ack(self.id)
+        # self.robotinoServer.lock.release()
         # remove task from robotino
         appLogger.debug(f"Robotino {self.id} finished transport task {self.task}")
 
@@ -346,7 +349,7 @@ class Robotino(QThread):
         """
         ERR_MSGS = ["PathBlocked"]
         self.target = int(position)
-
+        self.setDockingPos(0)
         self.lock.acquire()
 
         self.robotinoServer.lock.acquire()
@@ -432,7 +435,10 @@ class Robotino(QThread):
         if id[0] != "":
             id = int(id[1][0])
             state = self.commandInfo.split('"')
-            state = state[1]
+            if len(state)>=2:
+                state = state[1]
+            else:
+                state =""
             return id, state
         else:
             return 0, ""
@@ -460,13 +466,16 @@ class Robotino(QThread):
         """
         while not self.stopFlagAutoOperation.is_set():
             id, state = self._parseCommandInfo()
-            print(f"Robotino state message:  {state}")
+            # print(f"Robotino id: {id}\nRobotino state message:  {state}")
+            if state=="":
+                continue
             # Check for errorMsgs which show failure for operation
             for errMsg in errMsgs:
                 if state.lower() in errMsg.lower():
                     return False
+
             # Check for response which show successful operation
-            if int(id) == int(self.id) and state.lower() in strFinished.lower():
+            if (int(id) == int(self.id)) and (state.lower() in strFinished.lower()):
                 return True
             # Check if autooperation stopped and no waiting for response is needed
             elif self.stopFlagAutoOperation.is_set():
