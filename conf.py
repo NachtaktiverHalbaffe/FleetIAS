@@ -10,7 +10,7 @@ import logging
 # Conf for TCP-Communication
 IP_FLEETIAS = "129.69.102.129"
 IP_MES = "129.69.102.129"
-IP_ROS = "129.69.102.239"
+IP_ROS = "129.69.102.180"
 TCP_BUFF_SIZE = 512
 
 # Poll times (in seconds)

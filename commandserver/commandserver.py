@@ -25,6 +25,7 @@ class CommandServer(QThread):
     def __init__(self):
         super(CommandServer, self).__init__()
         # setup addr
+       
         self.ADDR = (IP_FLEETIAS, 13004)
         self.ADDRROS = (IP_ROS, 13002)
         # setup socket
@@ -182,7 +183,7 @@ class CommandServer(QThread):
                         "someSpecificValueForCommand": value,
                     }
         """
-        ROS_RESP_REACHED_TARGET = "target reached"
+        ROS_SUCCESS = "success"
         ROS_RESP_FEATURE = "feature set"
         ROS_RESP_OFFSET = "offset set"
         ROS_RESP_ERR = "error"
@@ -196,7 +197,7 @@ class CommandServer(QThread):
             # Wait for response
             data = clientSocket.recv(1024).decode("utf-8")
             #  Logging
-            if ROS_RESP_REACHED_TARGET in data.lower():
+            if ROS_SUCCESS in data.lower():
                 rosLogger.info(f"Command run successfully on ROS: PushTarget")
             elif ROS_RESP_FEATURE in data.lower():
                 rosLogger.info(f"Command run successfully on ROS: ActivateFeature")
