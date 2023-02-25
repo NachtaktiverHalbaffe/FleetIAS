@@ -6,6 +6,7 @@ Short description: Configruation File of FleetIAS
 (C) 2003-2022 IAS, Universitaet Stuttgart
 """
 import logging
+from enum import Enum
 
 # Conf for TCP-Communication
 IP_FLEETIAS = "129.69.102.129"
@@ -22,9 +23,7 @@ Logger
 """
 
 # APP LOGGING
-log_formatter_app = logging.Formatter(
-    "[%(asctime)s][%(module)s] %(levelname)s: %(message)s"
-)
+log_formatter_app = logging.Formatter("[%(asctime)s][%(module)s] %(levelname)s: %(message)s")
 # handler for logging to file
 file_handler_app = logging.FileHandler("logs/fleetias.log")
 file_handler_app.setFormatter(log_formatter_app)
@@ -58,3 +57,20 @@ rosLogger.setLevel(logging.INFO)
 rosLogger.handlers = []
 rosLogger.addHandler(stream_handler_ros)
 rosLogger.addHandler(file_handler_ros)
+
+
+class Metrics(Enum):
+    COLLISIONS = "collisions"
+    PRODUCTION_STOPS = "prodStop"
+    RISK = "risk"
+    STARTED_TASKS = "startedTasks"
+    SUCCESSFUL_TASKS = "successfulTasks"
+    COLLISION_PROBABILITY = "collisionProbability"
+
+
+class LoggingLevel(Enum):
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+    EVAL = "EVAL"

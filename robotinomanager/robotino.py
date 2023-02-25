@@ -78,7 +78,7 @@ class Robotino(QThread):
         self.batteryVoltage = float(strBattery[0])
         # fetch laserwarning
         strLaserWarning = msg.split("laserwarning:")
-        if len(strLaserWarning)>= 2:
+        if len(strLaserWarning) >= 2:
             strLaserWarning = strLaserWarning[1].split(" ")
         if "0" in strLaserWarning[0]:
             self.laserWarning = False
@@ -212,17 +212,12 @@ class Robotino(QThread):
         self.robotinoServer.lock.release()
 
         # Update state in IAS-MES
-        if (
-            self._waitForOpResponse("Started-LoadBox")
-            and self.mesClient.serviceSocketIsAlive
-        ):
+        if self._waitForOpResponse("Started-LoadBox") and self.mesClient.serviceSocketIsAlive:
             self.mesClient.moveBuf(self.id, self.dockedAt, True)
 
         if self._waitForOpResponse("Finished-LoadBox", errMsgs=ERROR_MSGS):
             self.lock.release()
-            appLogger.debug(
-                f"Robotino {self.id} finished loading carrier at resource {self.dockedAt}"
-            )
+            appLogger.debug(f"Robotino {self.id} finished loading carrier at resource {self.dockedAt}")
         elif retryOp:
             self.lock.release()
             self.loadCarrier(not retryOp)
@@ -248,16 +243,11 @@ class Robotino(QThread):
         self.robotinoServer.lock.release()
 
         # Update state in IAS-MES
-        if (
-            self._waitForOpResponse("Started-UnloadBox")
-            and self.mesClient.serviceSocketIsAlive
-        ):
+        if self._waitForOpResponse("Started-UnloadBox") and self.mesClient.serviceSocketIsAlive:
             self.mesClient.moveBuf(self.id, self.dockedAt, False)
         if self._waitForOpResponse("Finished-UnloadBox", errMsgs=ERR_MSGS):
             self.lock.release()
-            appLogger.debug(
-                f"Robotino {self.id} finished unloading carrier at resource {self.dockedAt}"
-            )
+            appLogger.debug(f"Robotino {self.id} finished unloading carrier at resource {self.dockedAt}")
         elif retryOp:
             self.lock.release()
             self.unloadCarrier(not retryOp)
@@ -291,18 +281,14 @@ class Robotino(QThread):
             if self.mesClient.serviceSocketIsAlive:
                 self.mesClient.setDockingPos(self.dockedAt, self.id)
                 self.lock.release()
-                appLogger.debug(
-                    f"Robotino {self.id} finished docking at resource {position}"
-                )
+                appLogger.debug(f"Robotino {self.id} finished docking at resource {position}")
         elif retryOp:
             self.lock.release()
             self.dock(position, not retryOp)
         else:
             self.lock.release()
             self.endTask()
-            appLogger.error(
-                f"Error occured while Robotino {self.id} tried to dock at resource {position}"
-            )
+            appLogger.error(f"Error occured while Robotino {self.id} tried to dock at resource {position}")
 
     def undock(self, retryOp=False):
         """
@@ -324,9 +310,7 @@ class Robotino(QThread):
                 self.mesClient.setDockingPos(self.dockedAt, self.id)
 
             self.lock.release()
-            appLogger.debug(
-                f"Robotino {self.id} finished undocking from resource {self.dockedAt}"
-            )
+            appLogger.debug(f"Robotino {self.id} finished undocking from resource {self.dockedAt}")
             self.dockedAt = 0
         elif retryOp:
             self.lock.release()
@@ -334,9 +318,7 @@ class Robotino(QThread):
         else:
             self.lock.release()
             self.endTask()
-            appLogger.error(
-                f"Error occured while Robotino {self.id} undocking from resource {self.dockedAt}"
-            )
+            appLogger.error(f"Error occured while Robotino {self.id} undocking from resource {self.dockedAt}")
 
     def driveTo(self, position, retryOp=False):
         """
@@ -357,18 +339,16 @@ class Robotino(QThread):
 
         if self._waitForOpResponse("Finished-GotoPosition", errMsgs=ERR_MSGS):
             self.lock.release()
-            appLogger.debug(
-                f"Robotino {self.id} finished driving to resource {position}"
-            )
+            appLogger.debug(f"Robotino {self.id} finished driving to resource {position}")
+            return "Success"
         elif retryOp:
             self.lock.release()
             self.driveTo(position, not retryOp)
         else:
             self.lock.release()
             self.endTask()
-            appLogger.error(
-                f"Error occurred while Robotino {self.id} drove to resource {position}"
-            )
+            appLogger.error(f"Error occurred while Robotino {self.id} drove to resource {position}")
+            return "Error"
 
     def driveToCor(self, position, retryOp=False):
         """
@@ -387,18 +367,14 @@ class Robotino(QThread):
 
         if self._waitForOpResponse("Finished-DriveToManual"):
             self.lock.release()
-            appLogger.debug(
-                f"Robotino {self.id} finished driving to coordinate {position}"
-            )
+            appLogger.debug(f"Robotino {self.id} finished driving to coordinate {position}")
         elif retryOp:
             self.lock.release()
             self.driveToCor(position, not retryOp)
         else:
             self.lock.release()
             self.endTask()
-            appLogger.error(
-                f"Error occured while Robotino {self.id} drove to coordinate {position}"
-            )
+            appLogger.error(f"Error occured while Robotino {self.id} drove to coordinate {position}")
 
     def setDockingPos(self, position):
         """
@@ -434,10 +410,10 @@ class Robotino(QThread):
         if id[0] != "":
             id = int(id[1][0])
             state = self.commandInfo.split('"')
-            if len(state)>=2:
+            if len(state) >= 2:
                 state = state[1]
             else:
-                state =""
+                state = ""
             return id, state
         else:
             return 0, ""
@@ -466,7 +442,7 @@ class Robotino(QThread):
         while not self.stopFlagAutoOperation.is_set():
             id, state = self._parseCommandInfo()
             # print(f"Robotino id: {id}\nRobotino state message:  {state}")
-            if state=="":
+            if state == "":
                 continue
             # Check for errorMsgs which show failure for operation
             for errMsg in errMsgs:

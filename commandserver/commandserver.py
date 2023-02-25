@@ -15,6 +15,8 @@ import time
 from PySide6.QtCore import QThread, Signal
 
 from conf import IP_ROS, IP_FLEETIAS, TCP_BUFF_SIZE, appLogger, rosLogger
+from robotinomanager.robotinomanager import RobotinoManager
+from .evaluationmanagerClient import EvalManagerClient
 
 
 class CommandServer(QThread):
@@ -25,7 +27,7 @@ class CommandServer(QThread):
     def __init__(self):
         super(CommandServer, self).__init__()
         # setup addr
-       
+
         self.ADDR = (IP_FLEETIAS, 13004)
         self.ADDRROS = (IP_ROS, 13002)
         # setup socket
@@ -33,7 +35,7 @@ class CommandServer(QThread):
         self.SERVER.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.stopFlag = Event()
         # robotinomanager for delegating messages to be handled
-        self.robotinoManager = None
+        self.robotinoManager: RobotinoManager = None
 
     def run(self):
         """
@@ -94,13 +96,16 @@ class CommandServer(QThread):
                             # Proprietary software
                             elif data["executioner"].lower() == "proprietary":
                                 if self.robotinoManager != None:
-                                    self.robotinoManager.getRobotino(
-                                        data["robotinoID"]
-                                    ).driveTo(data["workstationID"])
+                                    EvalManagerClient().evalLogStartedTask()
+                                    response = self.robotinoManager.getRobotino(data["robotinoID"]).driveTo(
+                                        data["workstationID"]
+                                    )
 
                                 if self._waitForCompletion(int(data["robotinoID"])):
                                     response = "Success"
+                                    EvalManagerClient().evalLogSuccessfulTask()
                                 else:
+                                    EvalManagerClient().evalLogStop()
                                     response = "Error"
                             else:
                                 appLogger.warning(
@@ -115,19 +120,9 @@ class CommandServer(QThread):
                                     resourceId=data["robotinoID"],
                                     type="coordinate",
                                 )
-                            # Proprietary
-                            elif data["executioner"].lower() == "proprietary":
-                                self.robotinoManager.getRobotino(
-                                    data["robotinoID"]
-                                ).driveToCor(data["coordinate"])
-
-                                if self._waitForCompletion(int(data["robotinoID"])):
-                                    response = "Success"
-                                else:
-                                    response = "Error"
                             else:
                                 appLogger.warning(
-                                    f'Couldn\'t execute command PushTarget: Executioner "{data["executioner"]}" is invalid'
+                                    f'Couldn\'t execute command PushTarget: Executioner "{data["executioner"]}" is invalid or doesn\'t support that operation'
                                 )
                         else:
                             rosLogger.warning(
@@ -150,13 +145,9 @@ class CommandServer(QThread):
                     #  ------------------- Set auto mode ----------------------------
                     elif data["command"].lower() == "setautomode":
                         if data["enabled"]:
-                            self.robotinoManager.getRobotino(
-                                data["robotinoID"]
-                            ).activateAutoMode()
+                            self.robotinoManager.getRobotino(data["robotinoID"]).activateAutoMode()
                         elif not data["enabled"]:
-                            self.robotinoManager.getRobotino(
-                                data["robotinoID"]
-                            ).activateManualMode()
+                            self.robotinoManager.getRobotino(data["robotinoID"]).activateManualMode()
                         else:
                             appLogger.warning(
                                 f'Couldn\'t set Automode of Robotino {data["robotinoID"]}: "Enabled" is not specified'
@@ -168,9 +159,7 @@ class CommandServer(QThread):
                     # Send response to client
                     client.sendall(bytes(response, encoding="utf-8"))
             except Exception as e:
-                appLogger.warning(
-                    f"Communication with socket {client} failed.\nError message: {e}"
-                )
+                appLogger.warning(f"Communication with socket {client} failed.\nError message: {e}")
 
     def runClientROS(self, request={}):
         """
@@ -225,9 +214,7 @@ class CommandServer(QThread):
         if type.lower() == "resource":
             # Type checking
             if position > 0 and position < 8:
-                rosLogger.info(
-                    f"Send Command to ROS: PushTarget with targetID {position}"
-                )
+                rosLogger.info(f"Send Command to ROS: PushTarget with targetID {position}")
                 request = {
                     "command": "PushTarget",
                     "robotinoID": resourceId,
@@ -235,17 +222,11 @@ class CommandServer(QThread):
                     "workstationID": position,
                 }
             else:
-                appLogger.error(
-                    f"Argument position {position} has wrong format. Must be a int betwenn 1 and 7"
-                )
+                appLogger.error(f"Argument position {position} has wrong format. Must be a int betwenn 1 and 7")
                 return
         elif type.lower() == "coordinate":
-            if (position[0] >= 0 and position[0] <= 200) and (
-                position[1] >= 0 and position[1] <= 200
-            ):
-                rosLogger.info(
-                    f"Send Command to ROS: PushTarget with coordinate {position}"
-                )
+            if (position[0] >= 0 and position[0] <= 200) and (position[1] >= 0 and position[1] <= 200):
+                rosLogger.info(f"Send Command to ROS: PushTarget with coordinate {position}")
                 request = {
                     "command": "PushTarget",
                     "robotinoID": resourceId,
@@ -258,9 +239,7 @@ class CommandServer(QThread):
                 )
                 return
         else:
-            appLogger.error(
-                f'{type} is a invalid target type. Must be either "resource" or "coordinate"'
-            )
+            appLogger.error(f'{type} is a invalid target type. Must be either "resource" or "coordinate"')
             return
         return self.runClientROS(request)
 
@@ -277,9 +256,7 @@ class CommandServer(QThread):
             Nothing
         """
         if type(value) == bool:
-            rosLogger.info(
-                msg=f"Send Command to ROS: ActivateFeature with value {value}"
-            )
+            rosLogger.info(msg=f"Send Command to ROS: ActivateFeature with value {value}")
             request = {
                 "command": "ActivateFeature",
                 "robotinoID": resourceId,
@@ -303,9 +280,7 @@ class CommandServer(QThread):
             Nothing
         """
         if type(offset) == float:
-            rosLogger.info(
-                msg=f"Send Command to ROS: AddOffset to topic {name} with value {offset}"
-            )
+            rosLogger.info(msg=f"Send Command to ROS: AddOffset to topic {name} with value {offset}")
             # TODO Make offset to a tuple
             request = {
                 "command": "AddOffset",
@@ -315,9 +290,7 @@ class CommandServer(QThread):
             }
             return self.runClientROS(request)
         else:
-            appLogger.error(
-                f"Argument offset: {offset} has wrong format. Must be an float"
-            )
+            appLogger.error(f"Argument offset: {offset} has wrong format. Must be an float")
 
     def _waitForCompletion(self, robotinoId: int):
         """
