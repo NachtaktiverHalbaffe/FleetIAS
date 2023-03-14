@@ -455,12 +455,12 @@ class MainWindow(QMainWindow):
         robotinoId = self.ui.inputRobtinoId.value()
         if robotinoId != 0:
             Thread(
-                target=self.robotinoServer.ROSAddOffset,
+                target=self.commandServer.addOffset,
                 args=[topic, offset, robotinoId],
             ).start()
         else:
             Thread(
-                target=self.robotinoServer.ROSAddOffset, args=[topic, offset]
+                target=self.commandServer.addOffset, args=[topic, offset]
             ).start()
 
     def sendCommandActivateFeature(self):

@@ -84,6 +84,7 @@ class RobotinoServer(QThread):
 
                     if response:
                         response = response.decode("utf-8")
+                        # print(response)
                         # -------------------- Error handling ------------------------
                         # station doesnt respond when loading/unloading carrier
                         if "error" in response.lower():
@@ -209,16 +210,8 @@ class RobotinoServer(QThread):
         Returns:
             Nothing
         """
-        if type == "resource":
-            request = f"PushCommand {resourceId} GoToPosition {position}"
-        elif type == "coordinate":
-            # TODO sniff actual command
-            request = f"PushCommand {resourceId} GoToManual {position}"
-        else:
-            appLogger.error(
-                f'{type} is a invalid target type. Must be either "resource" or "coordinate"'
-            )
-            return
+
+        request = f"PushCommand {resourceId} GoToPosition {position}"
         self.strToBin(request)
 
     def dock(self, resourceId=7):
@@ -307,7 +300,6 @@ class RobotinoServer(QThread):
             id (int): ResourceId of Robotino from which the command info comes
         """
         id = msg.split("robotinoid:")
-        print(f"parsMsg: {msg}")
         if id[0] != "":
             id = int(id[1][0])
             state = msg.split('"')

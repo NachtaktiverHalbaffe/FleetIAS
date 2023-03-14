@@ -286,7 +286,7 @@ class CommandServer(QThread):
                 "command": "AddOffset",
                 "robotinoID": resourceId,
                 "feature": name,
-                "offset": offset,
+                "offset": (offset,offset),
             }
             return self.runClientROS(request)
         else:

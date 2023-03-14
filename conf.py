@@ -27,11 +27,11 @@ log_formatter_app = logging.Formatter("[%(asctime)s][%(module)s] %(levelname)s: 
 # handler for logging to file
 file_handler_app = logging.FileHandler("logs/fleetias.log")
 file_handler_app.setFormatter(log_formatter_app)
-file_handler_app.setLevel(logging.INFO)
+file_handler_app.setLevel(logging.DEBUG)
 # handler for logging to console
 stream_handler_app = logging.StreamHandler()
 stream_handler_app.setFormatter(log_formatter_app)
-stream_handler_app.setLevel(logging.INFO)
+stream_handler_app.setLevel(logging.DEBUG)
 # setup logger itself
 appLogger = logging.getLogger(__name__)
 appLogger.setLevel(logging.DEBUG)

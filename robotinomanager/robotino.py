@@ -329,26 +329,25 @@ class Robotino(QThread):
             retryOp (bool, optional): If Robotino should retry operation when it fails. Defaults to False
         """
         ERR_MSGS = ["PathBlocked"]
-        self.busy = True
+        # self.busy = True
         self.target = int(position)
+        print(self.target)
         self.setDockingPos(0)
         self.lock.acquire()
-
         self.robotinoServer.lock.acquire()
-        self.robotinoServer.goTo(self.target, self.id)
+        self.robotinoServer.goTo(position, self.id)
         self.robotinoServer.lock.release()
-
         if self._waitForOpResponse("Finished-GotoPosition", errMsgs=ERR_MSGS):
-            self.busy = False
+            # self.busy = False
             self.lock.release()
             appLogger.debug(f"Robotino {self.id} finished driving to resource {position}")
             return "Success"
         elif retryOp:
-            self.busy = False
+            # self.busy = False
             self.lock.release()
             self.driveTo(position, not retryOp)
         else:
-            self.busy = False
+            # self.busy = False
             self.lock.release()
             self.endTask()
             appLogger.error(f"Error occurred while Robotino {self.id} drove to resource {position}")
